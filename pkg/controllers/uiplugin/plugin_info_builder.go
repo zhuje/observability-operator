@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,8 @@ var pluginTypeToConsoleName = map[uiv1alpha1.UIPluginType]string{
 	uiv1alpha1.TypeLogging:              "logging-view-plugin",
 }
 
-func PluginInfoBuilder(ctx context.Context, k client.Client, plugin *uiv1alpha1.UIPlugin, pluginConf UIPluginsConfiguration, compatibilityInfo CompatibilityEntry) (*UIPluginInfo, error) {
+func PluginInfoBuilder(ctx context.Context, k client.Client, plugin *uiv1alpha1.UIPlugin, pluginConf UIPluginsConfiguration, compatibilityInfo CompatibilityEntry, logger logr.Logger) (*UIPluginInfo, error) {
+	logger.Info("5.1 HELLO WORLD! ", "plugin.Spec.Monitoring.Perses.Name", plugin.Spec.Monitoring.Perses.Name, "plugin.Spec.Monitoring.Perses.Namespace", plugin.Spec.Monitoring.Perses.Namespace, "plugin.Spec.Monitoring.Alertmanager.Url", plugin.Spec.Monitoring.Alertmanager.Url)
 
 	image := pluginConf.Images[compatibilityInfo.ImageKey]
 	if image == "" {
@@ -161,7 +163,7 @@ func PluginInfoBuilder(ctx context.Context, k client.Client, plugin *uiv1alpha1.
 		return createLoggingPluginInfo(plugin, namespace, plugin.Name, image, compatibilityInfo.Features)
 
 	case uiv1alpha1.TypeMonitoring:
-		return createMonitoringPluginInfo(plugin, namespace, plugin.Name, image, compatibilityInfo.Features)
+		return createMonitoringPluginInfo(plugin, namespace, plugin.Name, image, compatibilityInfo.Features, logger)
 	}
 
 	return nil, fmt.Errorf("plugin type not supported: %s", plugin.Spec.Type)

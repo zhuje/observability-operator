@@ -136,16 +136,23 @@ type LokiStackReference struct {
 }
 
 // MonitoringConfig contains options for configuring the monitoring console plugin.
+//
+// +kubebuilder:validation:XValidation:rule="self.alertmanager != null && self.thanosQuerier != null || self.perses != null || (self.alertmanager != null && self.thanosQuerier != null && self.perses != null)",message="Either 'alertmanager' and 'thanosQuerier' are required, or 'perses' is required, or all three are required"
 type MonitoringConfig struct {
 	// Alertmanager points to the alertmanager instance of which it should create a proxy to.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Alertmanager AlertmanagerReference `json:"alertmanager"`
 
 	// ThanosQuerier points to the thanos-querier service of which it should create a proxy to.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	ThanosQuerier ThanosQuerierReference `json:"thanosQuerier"`
+
+	// Perses points to the perses instance service of which it should create a proxy to.
+	//
+	// +kubebuilder:validation:Optional
+	Perses PersesReference `json:"perses"`
 }
 
 // Alertmanager is used to configure a reference to a alertmanage that should be used
@@ -170,6 +177,23 @@ type ThanosQuerierReference struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength:=1
 	Url string `json:"url"`
+}
+
+// Perses is used to configure a reference to a perses service that should be used
+// by the monitoring console plugin.
+//
+// +structType=atomic
+type PersesReference struct {
+	// Name of the Perses Service to proxy to.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength:=1
+	Name string `json:"name"`
+	// Namespace of the Perses Service to proxy to.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength:=1
+	Namespace string `json:"namespace"`
 }
 
 // UIPluginSpec is the specification for desired state of UIPlugin.

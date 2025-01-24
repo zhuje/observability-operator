@@ -2,8 +2,10 @@ package uiplugin
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/go-logr/logr"
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,18 +15,40 @@ import (
 	uiv1alpha1 "github.com/rhobs/observability-operator/pkg/apis/uiplugin/v1alpha1"
 )
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, logger logr.Logger) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
 	}
 
-	if config.Alertmanager.Url == "" {
-		return nil, fmt.Errorf("alertmanager location can not be empty for plugin type %s", plugin.Spec.Type)
+	// Default service name and namespace for Perses
+	persesName := "perses-api-http"
+	persesNamespace := "perses-operator"
+
+	persesDashboardsFeatureEnabled := slices.Contains(features, "perses-dashboards")
+
+	logger.Info("6. HelloWorld ", "config.Perses.Name", config.Perses.Name, "config.Perses.Namespace", config.Perses.Namespace)
+
+	// validate UIPlugin CR monitoring properties
+	validACMConfig := (config.Alertmanager.Url != "" && config.ThanosQuerier.Url != "")
+	validConfig := validACMConfig || persesDashboardsFeatureEnabled
+
+	if !validConfig {
+		if config.Alertmanager.Url == "" {
+			return nil, fmt.Errorf("alertmanager location can not be empty for plugin type %s", plugin.Spec.Type)
+		}
+		if config.ThanosQuerier.Url == "" {
+			return nil, fmt.Errorf("ThanosQuerier location can not be empty for plugin type %s", plugin.Spec.Type)
+		}
 	}
-	if config.ThanosQuerier.Url == "" {
-		return nil, fmt.Errorf("ThanosQuerier location can not be empty for plugin type %s", plugin.Spec.Type)
+
+	// allow UIPlugin CR to override default perses name and namespace
+	if persesDashboardsFeatureEnabled && config.Perses.Name != "" && config.Perses.Namespace != "" {
+		persesName = config.Perses.Name
+		persesNamespace = config.Perses.Namespace
 	}
+
+	logger.Info("6. HelloWorld ", "config.Perses.Name", config.Perses.Name, "config.Perses.Namespace", config.Perses.Namespace)
 
 	pluginInfo := &UIPluginInfo{
 		Image:       image,
@@ -109,6 +133,31 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 				},
 			},
 		},
+	}
+
+	if persesDashboardsFeatureEnabled {
+		pluginInfo.Proxies = append(pluginInfo.Proxies, osv1.ConsolePluginProxy{
+			Alias:         "perses",
+			Authorization: "UserToken",
+			Endpoint: osv1.ConsolePluginProxyEndpoint{
+				Type: osv1.ProxyTypeService,
+				Service: &osv1.ConsolePluginProxyServiceConfig{
+					Name:      persesName,
+					Namespace: persesNamespace,
+					Port:      8080,
+				},
+			},
+		})
+		pluginInfo.LegacyProxies = append(pluginInfo.LegacyProxies, osv1alpha1.ConsolePluginProxy{
+			Type:      "Service",
+			Alias:     "perses",
+			Authorize: true,
+			Service: osv1alpha1.ConsolePluginProxyServiceConfig{
+				Name:      persesName,
+				Namespace: persesNamespace,
+				Port:      8080,
+			},
+		})
 	}
 
 	return pluginInfo, nil

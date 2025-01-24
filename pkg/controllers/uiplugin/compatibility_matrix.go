@@ -132,6 +132,19 @@ var compatibilityMatrix = []CompatibilityEntry{
 			"acm-alerting",
 		},
 	},
+	{
+		PluginType:        uiv1alpha1.TypeMonitoring,
+		MinClusterVersion: "v4.19",
+		MaxClusterVersion: "",
+		ImageKey:          "ui-monitoring",
+		MinAcmVersion:     "",
+		MaxAcmVersion:     "",
+		SupportLevel:      DevPreview,
+		Features: []string{
+			"perses-dashboards",
+		},
+	},
+	// TODO Add Case for both 'acm-alerting' and 'perses-dashboards'
 }
 
 func lookupImageAndFeatures(pluginType uiv1alpha1.UIPluginType, clusterVersion string, acmVersion string) (CompatibilityEntry, error) {

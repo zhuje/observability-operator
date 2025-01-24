@@ -167,6 +167,8 @@ func (rm resourceManager) consolePluginCapabilityEnabled(ctx context.Context, na
 func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := rm.logger.WithValues("plugin", req.NamespacedName)
 
+	logger.Info("1. HELLO WORLD!")
+
 	if !rm.consolePluginCapabilityEnabled(ctx, req.NamespacedName, rm.clusterVersion) {
 		logger.Info("Cluster console plugin not supported or not accessible. Skipping observability UI plugin reconciliation")
 		return ctrl.Result{}, nil
@@ -180,10 +182,14 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	logger.Info("2. HELLO WORLD!")
+
 	if plugin == nil {
 		// no such obs ui plugin, so stop here
 		return ctrl.Result{}, nil
 	}
+
+	logger.Info("3. HELLO WORLD!")
 
 	// Check if the plugin is being deleted
 	if !plugin.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -232,6 +238,9 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	logger.Info("4. HELLO WORLD!")
+	logger.Info("4.  HELLO WORLD!", "compatibilityInfo.Features", compatibilityInfo.Features, "compatibilityInfo.MinClusterVersion", compatibilityInfo.MinClusterVersion, "compatibilityInfo.MinAcmVersion", compatibilityInfo.MinAcmVersion, "compatibilityInfo.PluginType", compatibilityInfo.PluginType)
+
 	if plugin.Annotations == nil {
 		plugin.Annotations = map[string]string{}
 		plugin.Annotations["observability.openshift.io/api-support"] = string(compatibilityInfo.SupportLevel)
@@ -251,7 +260,8 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, plugin, rm.pluginConf, compatibilityInfo)
+	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, plugin, rm.pluginConf, compatibilityInfo, logger)
+	logger.Info("5. HELLO WORLD!")
 
 	if err != nil {
 		logger.Error(err, "failed to reconcile plugin")
@@ -271,6 +281,8 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return rm.updateStatus(ctx, req, plugin, err), err
 		}
 	}
+
+	logger.Info("6. HELLO WORLD!")
 
 	if err := rm.registerPluginWithConsole(ctx, pluginInfo); err != nil {
 		return rm.updateStatus(ctx, req, plugin, err), err

@@ -156,6 +156,22 @@ spec:
                     - url
                     type: object
                     x-kubernetes-map-type: atomic
+                  perses:
+                    description: Perses points to the perses instance service of which
+                      it should create a proxy to.
+                    properties:
+                      name:
+                        description: Name of the Perses Service to proxy to.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the Perses Service to proxy to.
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   thanosQuerier:
                     description: ThanosQuerier points to the thanos-querier service
                       of which it should create a proxy to.
@@ -168,10 +184,13 @@ spec:
                     - url
                     type: object
                     x-kubernetes-map-type: atomic
-                required:
-                - alertmanager
-                - thanosQuerier
                 type: object
+                x-kubernetes-validations:
+                - message: Either 'alertmanager' and 'thanosQuerier' are required,
+                    or 'perses' is required, or all three are required
+                  rule: self.alertmanager != null && self.thanosQuerier != null ||
+                    self.perses != null || (self.alertmanager != null && self.thanosQuerier
+                    != null && self.perses != null)
               troubleshootingPanel:
                 description: TroubleshootingPanel contains configuration for the troubleshooting
                   console plugin.
