@@ -150,7 +150,6 @@ spec:
                     properties:
                       url:
                         description: Url of the Alertmanager to proxy to.
-                        minLength: 1
                         type: string
                     required:
                     - url
@@ -162,14 +161,10 @@ spec:
                     properties:
                       name:
                         description: Name of the Perses Service to proxy to.
-                        minLength: 1
                         type: string
                       namespace:
                         description: Namespace of the Perses Service to proxy to.
-                        minLength: 1
                         type: string
-                    required:
-                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                   thanosQuerier:
@@ -178,19 +173,12 @@ spec:
                     properties:
                       url:
                         description: Url of the ThanosQuerier to proxy to.
-                        minLength: 1
                         type: string
                     required:
                     - url
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
-                x-kubernetes-validations:
-                - message: Either 'alertmanager' and 'thanosQuerier' are required,
-                    or 'perses' is required, or all three are required
-                  rule: self.alertmanager != null && self.thanosQuerier != null ||
-                    self.perses != null || (self.alertmanager != null && self.thanosQuerier
-                    != null && self.perses != null)
               troubleshootingPanel:
                 description: TroubleshootingPanel contains configuration for the troubleshooting
                   console plugin.

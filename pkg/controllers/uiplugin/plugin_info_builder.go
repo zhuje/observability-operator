@@ -42,7 +42,7 @@ var pluginTypeToConsoleName = map[uiv1alpha1.UIPluginType]string{
 }
 
 func PluginInfoBuilder(ctx context.Context, k client.Client, plugin *uiv1alpha1.UIPlugin, pluginConf UIPluginsConfiguration, compatibilityInfo CompatibilityEntry, logger logr.Logger) (*UIPluginInfo, error) {
-	logger.Info("5.1 HELLO WORLD! ", "plugin.Spec.Monitoring.Perses.Name", plugin.Spec.Monitoring.Perses.Name, "plugin.Spec.Monitoring.Perses.Namespace", plugin.Spec.Monitoring.Perses.Namespace, "plugin.Spec.Monitoring.Alertmanager.Url", plugin.Spec.Monitoring.Alertmanager.Url)
+	// logger.Info("5.1 HELLO WORLD! ", "plugin.Spec.Monitoring.Perses.Name", plugin.Spec.Monitoring.Perses.Name, "plugin.Spec.Monitoring.Perses.Namespace", plugin.Spec.Monitoring.Perses.Namespace, "plugin.Spec.Monitoring.Alertmanager.Url", plugin.Spec.Monitoring.Alertmanager.Url)
 
 	image := pluginConf.Images[compatibilityInfo.ImageKey]
 	if image == "" {

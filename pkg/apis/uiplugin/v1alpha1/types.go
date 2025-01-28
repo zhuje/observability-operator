@@ -136,23 +136,21 @@ type LokiStackReference struct {
 }
 
 // MonitoringConfig contains options for configuring the monitoring console plugin.
-//
-// +kubebuilder:validation:XValidation:rule="self.alertmanager != null && self.thanosQuerier != null || self.perses != null || (self.alertmanager != null && self.thanosQuerier != null && self.perses != null)",message="Either 'alertmanager' and 'thanosQuerier' are required, or 'perses' is required, or all three are required"
 type MonitoringConfig struct {
 	// Alertmanager points to the alertmanager instance of which it should create a proxy to.
 	//
 	// +kubebuilder:validation:Optional
-	Alertmanager AlertmanagerReference `json:"alertmanager"`
+	Alertmanager AlertmanagerReference `json:"alertmanager,omitempty"`
 
 	// ThanosQuerier points to the thanos-querier service of which it should create a proxy to.
 	//
 	// +kubebuilder:validation:Optional
-	ThanosQuerier ThanosQuerierReference `json:"thanosQuerier"`
+	ThanosQuerier ThanosQuerierReference `json:"thanosQuerier,omitempty"`
 
 	// Perses points to the perses instance service of which it should create a proxy to.
 	//
 	// +kubebuilder:validation:Optional
-	Perses PersesReference `json:"perses"`
+	Perses PersesReference `json:"perses,omitempty"`
 }
 
 // Alertmanager is used to configure a reference to a alertmanage that should be used
@@ -163,7 +161,6 @@ type AlertmanagerReference struct {
 	// Url of the Alertmanager to proxy to.
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength:=1
 	Url string `json:"url"`
 }
 
@@ -175,7 +172,6 @@ type ThanosQuerierReference struct {
 	// Url of the ThanosQuerier to proxy to.
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength:=1
 	Url string `json:"url"`
 }
 
@@ -186,14 +182,12 @@ type ThanosQuerierReference struct {
 type PersesReference struct {
 	// Name of the Perses Service to proxy to.
 	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:Optional
 	Name string `json:"name"`
 	// Namespace of the Perses Service to proxy to.
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:MinLength:=1
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // UIPluginSpec is the specification for desired state of UIPlugin.

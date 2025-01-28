@@ -167,7 +167,7 @@ func (rm resourceManager) consolePluginCapabilityEnabled(ctx context.Context, na
 func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := rm.logger.WithValues("plugin", req.NamespacedName)
 
-	logger.Info("1. HELLO WORLD!")
+	logger.Info("1. HELLO WORLD! Version 23")
 
 	if !rm.consolePluginCapabilityEnabled(ctx, req.NamespacedName, rm.clusterVersion) {
 		logger.Info("Cluster console plugin not supported or not accessible. Skipping observability UI plugin reconciliation")
@@ -198,6 +198,8 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
+		logger.Info("3.1 HELLO WORLD!")
+
 		// Remove finalizer if present
 		if slices.Contains(plugin.ObjectMeta.Finalizers, finalizerName) {
 			plugin.ObjectMeta.Finalizers = slices.DeleteFunc(plugin.ObjectMeta.Finalizers, func(currentFinalizerName string) bool {
@@ -208,9 +210,13 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			}
 		}
 
+		logger.Info("3.2 HELLO WORLD!")
+
 		logger.V(6).Info("skipping reconcile since object is already scheduled for deletion")
 		return ctrl.Result{}, nil
 	}
+
+	logger.Info("3.3 HELLO WORLD!")
 
 	// Add finalizer if not present
 	if !slices.Contains(plugin.ObjectMeta.Finalizers, finalizerName) {
@@ -220,9 +226,13 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 
+	logger.Info("3.4 HELLO WORLD!")
+
 	multiClusterHubList := &mchv1.MultiClusterHubList{}
 	acmVersion := "acm version not found"
 	err = rm.k8sClient.List(ctx, multiClusterHubList, &client.ListOptions{})
+
+	logger.Info("3.5 HELLO WORLD!")
 
 	// Multiple MultiClusterHub's are undefined behavior
 	if err == nil && len(multiClusterHubList.Items) == 1 {
@@ -232,6 +242,8 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			acmVersion = "v" + acmVersion
 		}
 	}
+
+	logger.Info("3.6 HELLO WORLD!")
 
 	compatibilityInfo, err := lookupImageAndFeatures(plugin.Spec.Type, rm.clusterVersion, acmVersion)
 	if err != nil {
@@ -268,7 +280,7 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	reconcilers := pluginComponentReconcilers(plugin, *pluginInfo, rm.clusterVersion)
+	reconcilers := pluginComponentReconcilers(plugin, *pluginInfo, rm.clusterVersion, compatibilityInfo)
 	for _, reconciler := range reconcilers {
 		err := reconciler.Reconcile(ctx, rm.k8sClient, rm.scheme)
 		// handle creation / updation errors that can happen due to a stale cache by

@@ -62,13 +62,13 @@ func isVersionAheadOrEqual(currentVersion, version string) bool {
 	return semver.Compare(currentVersion, canonicalMinVersion) >= 0
 }
 
-func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPluginInfo, clusterVersion string) []reconciler.Reconciler {
+func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPluginInfo, clusterVersion string, compatibilityInfo CompatibilityEntry) []reconciler.Reconciler {
 	namespace := pluginInfo.ResourceNamespace
 
 	components := []reconciler.Reconciler{
 		reconciler.NewUpdater(newServiceAccount(pluginInfo, namespace), plugin),
 		reconciler.NewUpdater(newDeployment(pluginInfo, namespace, plugin.Spec.Deployment), plugin),
-		reconciler.NewUpdater(newService(pluginInfo, namespace), plugin),
+		reconciler.NewUpdater(newService(pluginInfo, namespace, compatibilityInfo), plugin),
 	}
 
 	if isVersionAheadOrEqual(clusterVersion, "v4.17") {
@@ -333,9 +333,9 @@ func createNodeSelectorAndTolerations(config *uiv1alpha1.DeploymentConfig) (map[
 	return nodeSelector, config.Tolerations
 }
 
-func newService(info UIPluginInfo, namespace string) *corev1.Service {
+func newService(info UIPluginInfo, namespace string, compatibilityInfo CompatibilityEntry) *corev1.Service {
 	if info.ConsoleName == "monitoring-console-plugin" {
-		return newMonitoringService(info.Name, namespace)
+		return newMonitoringService(info.Name, namespace, compatibilityInfo)
 	}
 
 	annotations := map[string]string{

@@ -4241,7 +4241,7 @@ Perses points to the perses instance service of which it should create a proxy t
         <td>
           Name of the Perses Service to proxy to.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
