@@ -167,7 +167,7 @@ func (rm resourceManager) consolePluginCapabilityEnabled(ctx context.Context, na
 func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := rm.logger.WithValues("plugin", req.NamespacedName)
 
-	logger.Info("1. HELLO WORLD! Version 23")
+	logger.Info("1. HELLO WORLD! Version 25")
 
 	if !rm.consolePluginCapabilityEnabled(ctx, req.NamespacedName, rm.clusterVersion) {
 		logger.Info("Cluster console plugin not supported or not accessible. Skipping observability UI plugin reconciliation")

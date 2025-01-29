@@ -151,8 +151,6 @@ spec:
                       url:
                         description: Url of the Alertmanager to proxy to.
                         type: string
-                    required:
-                    - url
                     type: object
                     x-kubernetes-map-type: atomic
                   perses:
@@ -174,11 +172,12 @@ spec:
                       url:
                         description: Url of the ThanosQuerier to proxy to.
                         type: string
-                    required:
-                    - url
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+                x-kubernetes-validations:
+                - message: Invalid monitoring configuration
+                  rule: has(self.alertmanager) && has(self.thanosQuerier) || has(self.perses)
               troubleshootingPanel:
                 description: TroubleshootingPanel contains configuration for the troubleshooting
                   console plugin.

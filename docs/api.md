@@ -4214,7 +4214,7 @@ Alertmanager points to the alertmanager instance of which it should create a pro
         <td>
           Url of the Alertmanager to proxy to.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -4275,7 +4275,7 @@ ThanosQuerier points to the thanos-querier service of which it should create a p
         <td>
           Url of the ThanosQuerier to proxy to.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
