@@ -8,13 +8,13 @@ make generate && \
 make bundle && \
 make operator-image bundle-image operator-push bundle-push  \
     IMAGE_BASE="quay.io/jezhu/observability-operator" \
-    VERSION=1.1.0-dev-0.31.0
+    VERSION=1.1.0-dev-0.32.0
 
 # 2. If logged into a cluster, deploy to cluster 
 oc delete catalogsource observability-operator-catalog -n openshift-operators && \
 operator-sdk cleanup observability-operator -n openshift-operators && \
 operator-sdk run bundle \
-    quay.io/jezhu/observability-operator-bundle:1.1.0-dev-0.31.0 \
+    quay.io/jezhu/observability-operator-bundle:1.1.0-dev-0.32.0 \
     --install-mode AllNamespaces \
     --namespace openshift-operators \
     --security-context-config restricted
@@ -61,6 +61,19 @@ spec:
       namespace: "openshift-monitoring"
 EOF
 
+oc apply -f - <<EOF
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: monitoring
+spec:
+  type: Monitoring
+  monitoring:
+    perses:
+      name: "perses-api-http""
+      namespace: "perses-operator"
+EOF
+
 
 
 oc apply -f - <<EOF
@@ -76,8 +89,8 @@ spec:
     thanosQuerier:
       url: 'https://rbac-query-proxy.open-cluster-management-observability.svc:8443'
     perses:
-      name: "monitoring-plugin"
-      namespace: "openshift-monitoring"  
+      name: "perses-api-http"
+      namespace: "perses-operator"  
 EOF
 
 oc apply -f - <<EOF
