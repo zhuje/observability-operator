@@ -152,3 +152,10 @@ This won't work in debug mode, you won't be able to see changes. You need to
 1. make generate 
 2. make bundle 
 3. rebuild and deploy. 
+
+## To Update ConsolePlugin and monitoring-console-plugin deployment 
+You need to deplete the monitoring UIPlugin and oc apply -f again to trigger the update 
+
+## OU-571 branches 
+perses-flag-dev-2
+OU-571-perses-feature-flag-pr
