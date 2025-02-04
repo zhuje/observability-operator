@@ -57,6 +57,42 @@ var pluginConfigPerses = &uiv1alpha1.UIPlugin{
 	},
 }
 
+var pluginConfigPersesName = &uiv1alpha1.UIPlugin{
+	TypeMeta: metav1.TypeMeta{
+		APIVersion: "observability.openshift.io/v1alpha1",
+		Kind:       "UIPlugin",
+	},
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "monitoring-plugin",
+	},
+	Spec: uiv1alpha1.UIPluginSpec{
+		Type: "monitoring",
+		Monitoring: &uiv1alpha1.MonitoringConfig{
+			Perses: uiv1alpha1.PersesReference{
+				Namespace: "perses-operator",
+			},
+		},
+	},
+}
+
+var pluginConfigPersesNameSpace = &uiv1alpha1.UIPlugin{
+	TypeMeta: metav1.TypeMeta{
+		APIVersion: "observability.openshift.io/v1alpha1",
+		Kind:       "UIPlugin",
+	},
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "monitoring-plugin",
+	},
+	Spec: uiv1alpha1.UIPluginSpec{
+		Type: "monitoring",
+		Monitoring: &uiv1alpha1.MonitoringConfig{
+			Perses: uiv1alpha1.PersesReference{
+				Name: "perses-api-http",
+			},
+		},
+	},
+}
+
 var pluginConfigACM = &uiv1alpha1.UIPlugin{
 	TypeMeta: metav1.TypeMeta{
 		APIVersion: "observability.openshift.io/v1alpha1",
@@ -187,7 +223,7 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	t.Run("Test createMonitoringPluginInfo with missing URLs from thanos and alertmanager", func(t *testing.T) {
 		var features = []string{"acm-alerting", "perses-dashboards"}
 
-		// this should throw and error because thanosQuerier.URL and alertManager.URL are not set
+		// should not error because "perses-dashboards" feature enabled and persesName and persesNamespace are included in UIPlugin
 		pluginInfo, error := getPluginInfo(pluginConfigPerses, features)
 		alertmanagerFound, thanosFound, persesFound := containsProxy(pluginInfo)
 
@@ -197,33 +233,83 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 		assert.Assert(t, persesFound == true)
 	})
 
+	t.Run("Test createMonitoringPluginInfo with acm-alerting flag and perses configuration", func(t *testing.T) {
+		var features = []string{"acm-alerting"}
+
+		pluginInfo, error := getPluginInfo(pluginConfigPerses, features)
+
+		// should throw an error because acm-alerting configurations are not given
+		assert.Assert(t, pluginInfo == nil)
+		assert.Equal(t, error.Error(), IncompatibleFeaturesAndConfigsErrorMsg)
+	})
+
+	t.Run("Test createMonitoringPluginInfo with missing acm flag", func(t *testing.T) {
+		var features = []string{"perses-dashboards"}
+
+		pluginInfo, error := getPluginInfo(pluginConfigACM, features)
+
+		// should throw an error because acm-alerting configurations are given but ACM flag is not set
+		assert.Assert(t, pluginInfo == nil)
+		assert.Equal(t, error.Error(), IncompatibleFeaturesAndConfigsErrorMsg)
+	})
+
 	t.Run("Test createMonitoringPluginInfo with missing URL from thanos", func(t *testing.T) {
 		var features = []string{"acm-alerting", "perses-dashboards"}
 
-		// this should throw and error because thanosQuerier.URL is not set
+		errorMessage := AcmErrorMsg + PersesErrorMsg + ThanosEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
+
+		// this should throw an error because thanosQuerier.URL is not set
 		pluginInfo, error := getPluginInfo(pluginConfigAlertmanager, features)
 		assert.Assert(t, pluginInfo == nil)
 		assert.Assert(t, error != nil)
-		assert.Equal(t, error.Error(), "thanosQuerier location can not be empty for plugin type monitoring")
+		assert.Equal(t, error.Error(), errorMessage)
 	})
 
 	t.Run("Test createMonitoringPluginInfo with missing URL from alertmanager ", func(t *testing.T) {
 		var features = []string{"acm-alerting", "perses-dashboards"}
 
-		// this should throw and error because alertManager.URL is not set
+		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
+
+		// this should throw an error because alertManager.URL is not set
 		pluginInfo, error := getPluginInfo(pluginConfigThanos, features)
 		assert.Assert(t, pluginInfo == nil)
 		assert.Assert(t, error != nil)
-		assert.Equal(t, error.Error(), "alertmanager location can not be empty for plugin type monitoring")
+		assert.Equal(t, error.Error(), errorMessage)
+	})
+
+	t.Run("Test createMonitoringPluginInfo with missing persesName ", func(t *testing.T) {
+		var features = []string{"acm-alerting", "perses-dashboards"}
+
+		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNamespaceEmptyMsg
+
+		// this should throw an error because persesName is not set
+		pluginInfo, error := getPluginInfo(pluginConfigPersesNameSpace, features)
+		assert.Assert(t, pluginInfo == nil)
+		assert.Assert(t, error != nil)
+		assert.Equal(t, error.Error(), errorMessage)
+	})
+
+	t.Run("Test createMonitoringPluginInfo with missing persesNamespace ", func(t *testing.T) {
+		var features = []string{"acm-alerting", "perses-dashboards"}
+
+		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNameEmptyMsg
+
+		// this should throw an error because persesNamespace is not set
+		pluginInfo, error := getPluginInfo(pluginConfigPersesName, features)
+		assert.Assert(t, pluginInfo == nil)
+		assert.Assert(t, error != nil)
+		assert.Equal(t, error.Error(), errorMessage)
 	})
 
 	t.Run("Test createMonitoringPluginInfo with malform UIPlugin custom resource", func(t *testing.T) {
 		var features = []string{"acm-alerting", "perses-dashboards"}
 
-		// this should throw and error because UIPlugin doesn't include alertmanager, thanos, or perses
+		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
+
+		// this should throw an error because UIPlugin doesn't include alertmanager, thanos, or perses
 		pluginInfo, error := getPluginInfo(pluginMalformed, features)
 		assert.Assert(t, pluginInfo == nil)
 		assert.Assert(t, error != nil)
-		assert.Equal(t, error.Error(), "alertmanager location can not be empty for plugin type monitoring")
+		assert.Equal(t, error.Error(), errorMessage)
 	})
 }

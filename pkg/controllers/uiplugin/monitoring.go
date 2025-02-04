@@ -14,23 +14,60 @@ import (
 	uiv1alpha1 "github.com/rhobs/observability-operator/pkg/apis/uiplugin/v1alpha1"
 )
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string) (*UIPluginInfo, error) {
-	config := plugin.Spec.Monitoring
-	if config == nil {
-		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
+var AcmErrorMsg = `if you intend to enable "acm-alerting" thanos querier url and alertmanager url needs to be configured in the custom resource UIPlugin. `
+var PersesErrorMsg = `if you intend to enable "perses-dashboards" a perses service name and namespace needs to be configured in the custom resource UIPlugin.`
+var AlertmanagerEmptyMsg = "alertmanager location is empty for plugin type monitoring."
+var ThanosEmptyMsg = "thanosQuerier location is empty for plugin type monitoring."
+var PersesNameEmptyMsg = "persesName location is empty for plugin type monitoring."
+var PersesNamespaceEmptyMsg = "persesNamespace location is empty for plugin type monitoring."
+var IncompatibleFeaturesAndConfigsErrorMsg = "UIPlugin configurations are incompatible with feature flags"
+
+func getConfigError(config *uiv1alpha1.MonitoringConfig) (bool, bool, bool, string) {
+	errorSlice := []string{}
+	errorMessage := ""
+
+	// alertManager and thanosQuerier url configurations are required to enable 'acm-alerting'
+	validAlertManagerUrl := config.Alertmanager.Url != ""
+	if !validAlertManagerUrl {
+		errorSlice = append(errorSlice, AlertmanagerEmptyMsg)
 	}
 
-	// Get feature flag status determined from compatbility matrix
-	persesDashboardsFeatureEnabled := slices.Contains(features, "perses-dashboards")
-	acmAlertingFeatureEnabled := slices.Contains(features, "acm-alerting")
-	if !acmAlertingFeatureEnabled && !persesDashboardsFeatureEnabled {
-		return nil, fmt.Errorf("monitoring feature flags were not set, check cluster compatibility")
+	validThanosQuerierUrl := config.ThanosQuerier.Url != ""
+	if !validThanosQuerierUrl {
+		errorSlice = append(errorSlice, ThanosEmptyMsg)
+	}
+	isValidAcmAlertingConfig := validAlertManagerUrl && validThanosQuerierUrl
+
+	// perses name and namespace are required to enable 'perses-dashboards'
+	validPersesName := config.Perses.Name != ""
+	if !validPersesName {
+		errorSlice = append(errorSlice, PersesNameEmptyMsg)
+	}
+	validPersesNamespace := config.Perses.Namespace != ""
+	if !validPersesNamespace {
+		errorSlice = append(errorSlice, PersesNamespaceEmptyMsg)
+	}
+	isValidPersesConfig := validPersesName && validPersesNamespace
+
+	// build error message by converting slice into one string
+	if len(errorSlice) > 0 {
+		// Add extra information in the error message based on type of incorrect configurations
+		if !isValidPersesConfig {
+			errorSlice = append([]string{PersesErrorMsg}, errorSlice...)
+		}
+		if !isValidAcmAlertingConfig {
+			errorSlice = append([]string{AcmErrorMsg}, errorSlice...)
+		}
+		errorMessage = strings.Join(errorSlice, "")
 	}
 
-	invalidACMConfig := config.Alertmanager.Url == "" || config.ThanosQuerier.Url == ""
-	invalidPersesConfig := config.Perses.Name == "" || config.Perses.Namespace == ""
+	allConfigsInvalid := !isValidAcmAlertingConfig && !isValidPersesConfig
 
-	pluginInfo := &UIPluginInfo{
+	return allConfigsInvalid, isValidAcmAlertingConfig, isValidPersesConfig, errorMessage
+}
+
+func getBasePluginInfo(namespace, name, image string, features []string) *UIPluginInfo {
+	return &UIPluginInfo{
 		Image:       image,
 		Name:        name,
 		ConsoleName: "monitoring-console-plugin",
@@ -68,45 +105,34 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 			},
 		},
 	}
+}
 
-	if persesDashboardsFeatureEnabled && !invalidPersesConfig {
-		pluginInfo.Proxies = append(pluginInfo.Proxies, osv1.ConsolePluginProxy{
-			Alias:         "perses",
-			Authorization: "UserToken",
-			Endpoint: osv1.ConsolePluginProxyEndpoint{
-				Type: osv1.ProxyTypeService,
-				Service: &osv1.ConsolePluginProxyServiceConfig{
-					Name:      config.Perses.Name,
-					Namespace: config.Perses.Namespace,
-					Port:      8080,
-				},
-			},
-		})
-		pluginInfo.LegacyProxies = append(pluginInfo.LegacyProxies, osv1alpha1.ConsolePluginProxy{
-			Type:      "Service",
-			Alias:     "perses",
-			Authorize: true,
-			Service: osv1alpha1.ConsolePluginProxyServiceConfig{
-				Name:      config.Perses.Name,
-				Namespace: config.Perses.Namespace,
+func addPersesProxy(pluginInfo *UIPluginInfo, persesName string, persesNamespace string) {
+	pluginInfo.Proxies = append(pluginInfo.Proxies, osv1.ConsolePluginProxy{
+		Alias:         "perses",
+		Authorization: "UserToken",
+		Endpoint: osv1.ConsolePluginProxyEndpoint{
+			Type: osv1.ProxyTypeService,
+			Service: &osv1.ConsolePluginProxyServiceConfig{
+				Name:      persesName,
+				Namespace: persesNamespace,
 				Port:      8080,
 			},
-		})
+		},
+	})
+	pluginInfo.LegacyProxies = append(pluginInfo.LegacyProxies, osv1alpha1.ConsolePluginProxy{
+		Type:      "Service",
+		Alias:     "perses",
+		Authorize: true,
+		Service: osv1alpha1.ConsolePluginProxyServiceConfig{
+			Name:      persesName,
+			Namespace: persesNamespace,
+			Port:      8080,
+		},
+	})
+}
 
-		if !acmAlertingFeatureEnabled || invalidACMConfig {
-			return pluginInfo, nil
-		}
-	}
-
-	if invalidACMConfig {
-		if config.Alertmanager.Url == "" {
-			return nil, fmt.Errorf("alertmanager location can not be empty for plugin type %s", plugin.Spec.Type)
-		}
-		if config.ThanosQuerier.Url == "" {
-			return nil, fmt.Errorf("thanosQuerier location can not be empty for plugin type %s", plugin.Spec.Type)
-		}
-	}
-
+func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string, config *uiv1alpha1.MonitoringConfig) {
 	pluginInfo.ExtraArgs = append(pluginInfo.ExtraArgs,
 		fmt.Sprintf("-alertmanager=%s", config.Alertmanager.Url),
 		fmt.Sprintf("-thanos-querier=%s", config.ThanosQuerier.Url),
@@ -159,6 +185,42 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 			},
 		},
 	)
+}
+
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string) (*UIPluginInfo, error) {
+	config := plugin.Spec.Monitoring
+	if config == nil {
+		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
+	}
+
+	// Validate at least one feature flag is present
+	persesDashboardsFeatureEnabled := slices.Contains(features, "perses-dashboards")
+	acmAlertingFeatureEnabled := slices.Contains(features, "acm-alerting")
+	if !acmAlertingFeatureEnabled && !persesDashboardsFeatureEnabled {
+		return nil, fmt.Errorf("monitoring feature flags were not set, check cluster compatibility")
+	}
+
+	// Validate UIPlugin configuration
+	allConfigsInvalid, validAcmAlertingConfig, validPersesConfig, errorMessage := getConfigError(config)
+	if allConfigsInvalid {
+		return nil, fmt.Errorf("%s", errorMessage)
+	}
+
+	// Validate at least one proxy can be added to monitoring plugin info
+	validPersesProxyConditions := persesDashboardsFeatureEnabled && validPersesConfig
+	validAcmAlertingProxyConditions := acmAlertingFeatureEnabled && validAcmAlertingConfig
+	invalidProxyConditions := !validPersesProxyConditions && !validAcmAlertingProxyConditions
+	if invalidProxyConditions {
+		return nil, fmt.Errorf("%s", IncompatibleFeaturesAndConfigsErrorMsg)
+	}
+
+	pluginInfo := getBasePluginInfo(namespace, name, image, features)
+	if validPersesProxyConditions {
+		addPersesProxy(pluginInfo, config.Perses.Name, config.Perses.Namespace)
+	}
+	if validAcmAlertingProxyConditions {
+		addAcmAlertingProxy(pluginInfo, name, namespace, config)
+	}
 
 	return pluginInfo, nil
 }
