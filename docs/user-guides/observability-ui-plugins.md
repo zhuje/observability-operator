@@ -182,4 +182,4 @@ spec:
 | __COO Version__ |   __OCP Versions__  | __Features__                      |
 | --------------- | ------------------- | --------------------------------- |
 | 1.0.0+          | 4.14+               | `acm-alerting`                    |
-| 1.1.0+          | 4.19+               | `acm-alerting, perses-dashboards` |
+| 1.1.0+          | 4.14+               | `acm-alerting, perses-dashboards` |

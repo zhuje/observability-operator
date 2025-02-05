@@ -7,6 +7,7 @@ import (
 
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -187,10 +188,25 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, acmVersion string) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
+	}
+
+	// Validate UIPlugin configuration
+	allConfigsInvalid, validAcmAlertingConfig, validPersesConfig, errorMessage := getConfigError(config)
+	if allConfigsInvalid {
+		return nil, fmt.Errorf("%s", errorMessage)
+	}
+
+	//  Inject feature flags based on valid UIPlugin Configuration and version of dependencies
+	if (semver.Compare(acmVersion, "v2.11") >= 0) && validAcmAlertingConfig {
+		// "acm-alerting" feature is supported in ACM v2.11+
+		features = append(features, "acm-alerting")
+	}
+	if validPersesConfig {
+		features = append(features, "perses-dashboards")
 	}
 
 	// Validate at least one feature flag is present
@@ -198,12 +214,6 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	acmAlertingFeatureEnabled := slices.Contains(features, "acm-alerting")
 	if !acmAlertingFeatureEnabled && !persesDashboardsFeatureEnabled {
 		return nil, fmt.Errorf("monitoring feature flags were not set, check cluster compatibility")
-	}
-
-	// Validate UIPlugin configuration
-	allConfigsInvalid, validAcmAlertingConfig, validPersesConfig, errorMessage := getConfigError(config)
-	if allConfigsInvalid {
-		return nil, fmt.Errorf("%s", errorMessage)
 	}
 
 	// Validate at least one proxy can be added to monitoring plugin info

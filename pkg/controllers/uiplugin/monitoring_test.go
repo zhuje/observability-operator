@@ -181,13 +181,15 @@ func containsProxy(pluginInfo *UIPluginInfo) (bool, bool, bool) {
 	return alertmanagerFound, thanosFound, persesFound
 }
 
+var acmVersion = "v2.11"
+var features = []string{}
+
 func getPluginInfo(plugin *uiv1alpha1.UIPlugin, features []string) (*UIPluginInfo, error) {
-	return createMonitoringPluginInfo(plugin, namespace, name, image, features)
+	return createMonitoringPluginInfo(plugin, namespace, name, image, features, acmVersion)
 }
 
 func TestCreateMonitoringPluginInfo(t *testing.T) {
 	t.Run("Test createMonitoringPluginInfo with all monitoring configurations", func(t *testing.T) {
-		var features = []string{"perses-dashboards", "acm-alerting"}
 		pluginInfo, error := getPluginInfo(pluginConfigAll, features)
 		alertmanagerFound, thanosFound, persesFound := containsProxy(pluginInfo)
 
@@ -198,7 +200,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with AMC configuration only", func(t *testing.T) {
-		var features = []string{"acm-alerting"}
 		pluginInfo, error := getPluginInfo(pluginConfigACM, features)
 		alertmanagerFound, thanosFound, persesFound := containsProxy(pluginInfo)
 
@@ -210,7 +211,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with Perses configuration only", func(t *testing.T) {
-		var features = []string{"perses-dashboards"}
 		pluginInfo, error := getPluginInfo(pluginConfigPerses, features)
 		alertmanagerFound, thanosFound, persesFound := containsProxy(pluginInfo)
 
@@ -221,8 +221,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with missing URLs from thanos and alertmanager", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		// should not error because "perses-dashboards" feature enabled and persesName and persesNamespace are included in UIPlugin
 		pluginInfo, error := getPluginInfo(pluginConfigPerses, features)
 		alertmanagerFound, thanosFound, persesFound := containsProxy(pluginInfo)
@@ -233,29 +231,7 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 		assert.Assert(t, persesFound == true)
 	})
 
-	t.Run("Test createMonitoringPluginInfo with acm-alerting flag and perses configuration", func(t *testing.T) {
-		var features = []string{"acm-alerting"}
-
-		pluginInfo, error := getPluginInfo(pluginConfigPerses, features)
-
-		// should throw an error because acm-alerting configurations are not given
-		assert.Assert(t, pluginInfo == nil)
-		assert.Equal(t, error.Error(), IncompatibleFeaturesAndConfigsErrorMsg)
-	})
-
-	t.Run("Test createMonitoringPluginInfo with missing acm flag", func(t *testing.T) {
-		var features = []string{"perses-dashboards"}
-
-		pluginInfo, error := getPluginInfo(pluginConfigACM, features)
-
-		// should throw an error because acm-alerting configurations are given but ACM flag is not set
-		assert.Assert(t, pluginInfo == nil)
-		assert.Equal(t, error.Error(), IncompatibleFeaturesAndConfigsErrorMsg)
-	})
-
 	t.Run("Test createMonitoringPluginInfo with missing URL from thanos", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		errorMessage := AcmErrorMsg + PersesErrorMsg + ThanosEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
 
 		// this should throw an error because thanosQuerier.URL is not set
@@ -266,8 +242,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with missing URL from alertmanager ", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
 
 		// this should throw an error because alertManager.URL is not set
@@ -278,8 +252,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with missing persesName ", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNamespaceEmptyMsg
 
 		// this should throw an error because persesName is not set
@@ -290,8 +262,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with missing persesNamespace ", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNameEmptyMsg
 
 		// this should throw an error because persesNamespace is not set
@@ -302,8 +272,6 @@ func TestCreateMonitoringPluginInfo(t *testing.T) {
 	})
 
 	t.Run("Test createMonitoringPluginInfo with malform UIPlugin custom resource", func(t *testing.T) {
-		var features = []string{"acm-alerting", "perses-dashboards"}
-
 		errorMessage := AcmErrorMsg + PersesErrorMsg + AlertmanagerEmptyMsg + ThanosEmptyMsg + PersesNameEmptyMsg + PersesNamespaceEmptyMsg
 
 		// this should throw an error because UIPlugin doesn't include alertmanager, thanos, or perses
