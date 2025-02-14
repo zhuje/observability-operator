@@ -171,7 +171,7 @@ bundle: $(KUSTOMIZE) $(OPERATOR_SDK) generate
 			--package=observability-operator \
 		 	$(BUNDLE_METADATA_OPTS)
 	sed -e 's|<IMG_OBSERVABILITY_OPERATOR>|$(OPERATOR_IMG)|g' \
-		-i bundle/manifests/observability-operator.clusterserviceversion.yaml
+		-i '' bundle/manifests/observability-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle \
 		--select-optional name=operatorhub \
 		--optional-values=k8s-version=1.21 \

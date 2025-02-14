@@ -11,8 +11,8 @@ resources:
 
 images:
 - name: observability-operator
-  newName: observability-operator
-  newTag: 1.0.0
+  newName: quay.io/jezhu/observability-operator
+  newTag: 1.1.0-dev-0.46.0
 
 patches:
 - patch: |-

@@ -31,8 +31,8 @@ var pluginConfigAll = &uiv1alpha1.UIPlugin{
 				Url: "https://rbac-query-proxy.open-cluster-management-observability.svc:8443",
 			},
 			Perses: uiv1alpha1.PersesReference{
-				Name:      "perses-api-http",
-				Namespace: "perses-operator",
+				ServiceName: "perses-api-http",
+				Namespace:   "perses-operator",
 			},
 		},
 	},
@@ -50,8 +50,8 @@ var pluginConfigPerses = &uiv1alpha1.UIPlugin{
 		Type: "monitoring",
 		Monitoring: &uiv1alpha1.MonitoringConfig{
 			Perses: uiv1alpha1.PersesReference{
-				Name:      "perses-api-http",
-				Namespace: "perses-operator",
+				ServiceName: "perses-api-http",
+				Namespace:   "perses-operator",
 			},
 		},
 	},
@@ -87,7 +87,7 @@ var pluginConfigPersesNameSpace = &uiv1alpha1.UIPlugin{
 		Type: "monitoring",
 		Monitoring: &uiv1alpha1.MonitoringConfig{
 			Perses: uiv1alpha1.PersesReference{
-				Name: "perses-api-http",
+				ServiceName: "perses-api-http",
 			},
 		},
 	},
