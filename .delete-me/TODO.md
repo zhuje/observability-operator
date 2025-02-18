@@ -2,8 +2,8 @@
 [x] 2. Create ‘enable’ attribute on acm and perses 
 [x] 3. Add ‘incidents’ to the CR as well 
 [x] 4. Change Perses ‘name’ to ‘serviceName’
-[ ] 5. If Perses is enabled and no serviceName/Namespace is set then use the default serviceName and Namespace (‘perses-api-http’, ‘perses’). Namespace: Perses, is where the backend where live . Perses-operator will be deployed in the same namespace as COO (openshift-operator) 
-[ ] 6. getConfigError() to getAcmConfigError() and getPersesConfigError(). 
+[x] 5. If Perses is enabled and no serviceName/Namespace is set then use the default serviceName and Namespace (‘perses-api-http’, ‘perses’). Namespace: Perses, is where the backend where live . Perses-operator will be deployed in the same namespace as COO (openshift-operator) 
+[x] 6. getConfigError() to getAcmConfigError() and getPersesConfigError(). 
 
 
 
