@@ -2,16 +2,16 @@ package operator
 
 import (
 	"context"
-	"crypto/tls"
+	// "crypto/tls"
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
+	// "os"
+	// "path/filepath"
+	// "time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
-	"k8s.io/client-go/kubernetes"
+	// "k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -139,78 +139,78 @@ func New(ctx context.Context, cfg *OperatorConfiguration) (*Operator, error) {
 		clientCAController    *dynamiccertificates.ConfigMapCAController
 		servingCertController *dynamiccertificates.DynamicServingCertificateController
 	)
-	if cfg.FeatureGates.OpenShift.Enabled {
-		// When running in OpenShift, the server uses HTTPS thanks to the
-		// service CA operator.
-		certFile := filepath.Join(tlsMountPath, "tls.crt")
-		keyFile := filepath.Join(tlsMountPath, "tls.key")
+	// if cfg.FeatureGates.OpenShift.Enabled {
+	// 	// When running in OpenShift, the server uses HTTPS thanks to the
+	// 	// service CA operator.
+	// 	certFile := filepath.Join(tlsMountPath, "tls.crt")
+	// 	keyFile := filepath.Join(tlsMountPath, "tls.key")
 
-		// Wait for the files to be mounted into the container.
-		var pollErr error
-		err := wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-			for _, f := range []string{certFile, keyFile} {
-				if _, err := os.Stat(f); err != nil {
-					pollErr = err
-					return false, nil
-				}
-			}
+	// 	// Wait for the files to be mounted into the container.
+	// 	var pollErr error
+	// 	err := wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+	// 		for _, f := range []string{certFile, keyFile} {
+	// 			if _, err := os.Stat(f); err != nil {
+	// 				pollErr = err
+	// 				return false, nil
+	// 			}
+	// 		}
 
-			return true, nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", err, pollErr)
-		}
+	// 		return true, nil
+	// 	})
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("%w: %w", err, pollErr)
+	// 	}
 
-		// DynamicCertKeyPairContent automatically reloads the certificate and key from disk.
-		certKeyProvider, err := dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", certFile, keyFile)
-		if err != nil {
-			return nil, err
-		}
-		if err := certKeyProvider.RunOnce(ctx); err != nil {
-			return nil, fmt.Errorf("failed to initialize cert/key content: %w", err)
-		}
+	// 	// DynamicCertKeyPairContent automatically reloads the certificate and key from disk.
+	// 	certKeyProvider, err := dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", certFile, keyFile)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if err := certKeyProvider.RunOnce(ctx); err != nil {
+	// 		return nil, fmt.Errorf("failed to initialize cert/key content: %w", err)
+	// 	}
 
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return nil, err
-		}
+	// 	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		clientCAController, err = dynamiccertificates.NewDynamicCAFromConfigMapController(
-			"client-ca",
-			metav1.NamespaceSystem,
-			"extension-apiserver-authentication",
-			"client-ca-file",
-			kubeClient,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize client CA controller: %w", err)
-		}
+	// 	clientCAController, err = dynamiccertificates.NewDynamicCAFromConfigMapController(
+	// 		"client-ca",
+	// 		metav1.NamespaceSystem,
+	// 		"extension-apiserver-authentication",
+	// 		"client-ca-file",
+	// 		kubeClient,
+	// 	)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to initialize client CA controller: %w", err)
+	// 	}
 
-		servingCertController = dynamiccertificates.NewDynamicServingCertificateController(
-			&tls.Config{
-				ClientAuth: tls.RequireAndVerifyClientCert,
-			},
-			clientCAController,
-			certKeyProvider,
-			nil,
-			// Disabling events for now because the controller generates
-			// invalid events when used with DynamicServingContentFromFiles.
-			nil,
-		)
-		if err := servingCertController.RunOnce(); err != nil {
-			return nil, fmt.Errorf("failed to initialize serving certificate controller: %w", err)
-		}
+	// 	servingCertController = dynamiccertificates.NewDynamicServingCertificateController(
+	// 		&tls.Config{
+	// 			ClientAuth: tls.RequireAndVerifyClientCert,
+	// 		},
+	// 		clientCAController,
+	// 		certKeyProvider,
+	// 		nil,
+	// 		// Disabling events for now because the controller generates
+	// 		// invalid events when used with DynamicServingContentFromFiles.
+	// 		nil,
+	// 	)
+	// 	if err := servingCertController.RunOnce(); err != nil {
+	// 		return nil, fmt.Errorf("failed to initialize serving certificate controller: %w", err)
+	// 	}
 
-		clientCAController.AddListener(servingCertController)
-		certKeyProvider.AddListener(servingCertController)
+	// 	clientCAController.AddListener(servingCertController)
+	// 	certKeyProvider.AddListener(servingCertController)
 
-		metricsOpts.SecureServing = true
-		metricsOpts.TLSOpts = []func(*tls.Config){
-			func(c *tls.Config) {
-				c.GetConfigForClient = servingCertController.GetConfigForClient
-			},
-		}
-	}
+	// 	metricsOpts.SecureServing = true
+	// 	metricsOpts.TLSOpts = []func(*tls.Config){
+	// 		func(c *tls.Config) {
+	// 			c.GetConfigForClient = servingCertController.GetConfigForClient
+	// 		},
+	// 	}
+	// }
 
 	mgr, err := ctrl.NewManager(
 		restConfig,

@@ -6,7 +6,7 @@
 [x] 6. getConfigError() to getAcmConfigError() and getPersesConfigError(). 
 
 
-
+### When an CRD error is thrown 
 1. Make thanosQuerier and alertmanager URL required in CRD - works only if you leave "url:" blank 
 ❯  oc apply -f - <<EOF
 apiVersion: observability.openshift.io/v1alpha1

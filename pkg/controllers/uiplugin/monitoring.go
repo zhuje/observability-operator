@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	"golang.org/x/mod/semver"
@@ -13,22 +14,6 @@ import (
 
 	uiv1alpha1 "github.com/rhobs/observability-operator/pkg/apis/uiplugin/v1alpha1"
 )
-
-var AcmErrorMsg = `if you intend to enable "acm-alerting" thanos querier url and alertmanager url needs to be configured in the custom resource UIPlugin. `
-var PersesErrorMsg = `if you intend to enable "perses-dashboards" a perses service name and namespace needs to be configured in the custom resource UIPlugin.`
-var AlertmanagerEmptyMsg = "alertmanager location is empty for plugin type monitoring."
-var ThanosEmptyMsg = "thanosQuerier location is empty for plugin type monitoring."
-var PersesNameEmptyMsg = "persesName location is empty for plugin type monitoring."
-var PersesNamespaceEmptyMsg = "persesNamespace location is empty for plugin type monitoring."
-var IncompatibleFeaturesAndConfigsErrorMsg = "UIPlugin configurations are incompatible with feature flags"
-
-func createErrorMsg(errorSlice []string) string {
-	// build error message by converting slice into one string
-	if len(errorSlice) > 0 {
-		return strings.Join(errorSlice, "")
-	}
-	return ""
-}
 
 /*
 Requirements for ACM enablement
@@ -45,6 +30,9 @@ func validateACMConfig(config *uiv1alpha1.MonitoringConfig, acmVersion string) b
 	isValidAcmAlertingConfig := validAlertManagerUrl && validThanosQuerierUrl
 
 	// "acm-alerting" feature is supported in ACM v2.11+
+	if !strings.HasPrefix(acmVersion, "v") {
+		acmVersion = "v" + acmVersion
+	}
 	minACMVersionMet := semver.Compare(acmVersion, "v2.11") >= 0
 
 	return isValidAcmAlertingConfig && enabled && minACMVersionMet
@@ -79,10 +67,18 @@ Requirements for Incidnets enablement
 func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion string) bool {
 	enabled := config.Incidents.Enabled
 
+	// normalize format of clusterVersion
+	if !strings.HasPrefix(clusterVersion, "v") {
+		clusterVersion = "v" + clusterVersion
+	}
+	// remove "-0.nightly" from "v4.18.0-0.nightly"
+	// this allow nightly versions to be used
+	// (semver would evalute "v4.18.0-0.nightly" as less than "v4.18" because its not a stable version)
+	clusterVersion = strings.Split(clusterVersion, "-")[0]
+
 	minClusterVersionMet := (semver.Compare(clusterVersion, "v4.18") >= 0)
 
 	return enabled && minClusterVersionMet
-
 }
 
 func addFeatureFlags(plugin *UIPluginInfo, features []string) {
@@ -211,7 +207,7 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, acmVersion string, clusterVersion string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, acmVersion string, clusterVersion string, logger logr.Logger) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
@@ -220,10 +216,17 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		return nil, fmt.Errorf("monitoring configurations did not enabled any features")
 	}
 
+	logger.Info("1. createMonitoringPluginInfo", "plugin: ", plugin)
+	logger.Info("1. createMonitoringPluginInfo", "plugin: ", plugin.Spec.Monitoring)
+
 	// Validate feature configuration and cluster conditions support enablement
 	isValidAcmConfig := validateACMConfig(config, acmVersion)
 	isValidPersesConfig := validatePersesConfig(config)
 	isValidIncidentsConfig := validateIncidentsConfig(config, clusterVersion)
+
+	logger.Info("3.createMonitoringPluginInfo", "isValidAcmConfig: ", isValidAcmConfig)
+	logger.Info("3.createMonitoringPluginInfo", "isValidPersesConfig: ", isValidPersesConfig)
+	logger.Info("3.createMonitoringPluginInfo", "isValidIncidentsConfig: ", isValidIncidentsConfig)
 
 	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
 	if atLeastOneValidConfig == false {
@@ -245,6 +248,8 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		features = append(features, "incidents")
 	}
 	addFeatureFlags(pluginInfo, features)
+
+	logger.Info("3.createMonitoringPluginInfo", "pluginInfo: ", pluginInfo)
 
 	return pluginInfo, nil
 }
