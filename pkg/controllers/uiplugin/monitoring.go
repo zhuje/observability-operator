@@ -220,7 +220,7 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	isValidIncidentsConfig := validateIncidentsConfig(config, clusterVersion)
 
 	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
-	if atLeastOneValidConfig == false {
+	if !atLeastOneValidConfig {
 		return nil, fmt.Errorf("uiplugin monitoring configurations are invalid")
 	}
 
