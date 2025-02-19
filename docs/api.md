@@ -4168,10 +4168,17 @@ Monitoring contains configuration for the monitoring console plugin.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#uipluginspecmonitoringalertmanager">alertmanager</a></b></td>
+        <td><b><a href="#uipluginspecmonitoringacm">acm</a></b></td>
         <td>object</td>
         <td>
-          Alertmanager points to the alertmanager instance of which it should create a proxy to.<br/>
+          ACM points to the alertmanager and thanosQuerier instance services of which it should create a proxy to.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#uipluginspecmonitoringincidents">incidents</a></b></td>
+        <td>object</td>
+        <td>
+          Incidents feature flag enablement<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4181,19 +4188,53 @@ Monitoring contains configuration for the monitoring console plugin.
           Perses points to the perses instance service of which it should create a proxy to.<br/>
         </td>
         <td>false</td>
-      </tr><tr>
-        <td><b><a href="#uipluginspecmonitoringthanosquerier">thanosQuerier</a></b></td>
-        <td>object</td>
-        <td>
-          ThanosQuerier points to the thanos-querier service of which it should create a proxy to.<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 
 
-### UIPlugin.spec.monitoring.alertmanager
+### UIPlugin.spec.monitoring.acm
 <sup><sup>[↩ Parent](#uipluginspecmonitoring)</sup></sup>
+
+
+
+ACM points to the alertmanager and thanosQuerier instance services of which it should create a proxy to.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#uipluginspecmonitoringacmalertmanager">alertmanager</a></b></td>
+        <td>object</td>
+        <td>
+          Alertmanager points to the alertmanager instance of which it should create a proxy to.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Indicates if ACM-related feature(s) should be enabled<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#uipluginspecmonitoringacmthanosquerier">thanosQuerier</a></b></td>
+        <td>object</td>
+        <td>
+          ThanosQuerier points to the thanos-querier service of which it should create a proxy to.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### UIPlugin.spec.monitoring.acm.alertmanager
+<sup><sup>[↩ Parent](#uipluginspecmonitoringacm)</sup></sup>
 
 
 
@@ -4214,7 +4255,61 @@ Alertmanager points to the alertmanager instance of which it should create a pro
         <td>
           Url of the Alertmanager to proxy to.<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### UIPlugin.spec.monitoring.acm.thanosQuerier
+<sup><sup>[↩ Parent](#uipluginspecmonitoringacm)</sup></sup>
+
+
+
+ThanosQuerier points to the thanos-querier service of which it should create a proxy to.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          Url of the ThanosQuerier to proxy to.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### UIPlugin.spec.monitoring.incidents
+<sup><sup>[↩ Parent](#uipluginspecmonitoring)</sup></sup>
+
+
+
+Incidents feature flag enablement
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Indicates if incidents-related feature(s) should be enabled.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -4236,44 +4331,26 @@ Perses points to the perses instance service of which it should create a proxy t
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
         <td>
-          Name of the Perses Service to proxy to.<br/>
+          Indicates if perses-related feature(s) should be enabled<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace of the Perses Service to proxy to.<br/>
+          Namespace of the Perses Service to proxy to.
+If Enabled=true and Namespace is not included it will be initialized to a default value.<br/>
         </td>
         <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### UIPlugin.spec.monitoring.thanosQuerier
-<sup><sup>[↩ Parent](#uipluginspecmonitoring)</sup></sup>
-
-
-
-ThanosQuerier points to the thanos-querier service of which it should create a proxy to.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>url</b></td>
+      </tr><tr>
+        <td><b>serviceName</b></td>
         <td>string</td>
         <td>
-          Url of the ThanosQuerier to proxy to.<br/>
+          ServiceName of the Perses Service to proxy to.
+If Enabled=true and ServiceName is not included it will be initialized to a default value.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

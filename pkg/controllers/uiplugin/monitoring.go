@@ -2,7 +2,6 @@ package uiplugin
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	osv1 "github.com/openshift/api/console/v1"
@@ -15,66 +14,84 @@ import (
 	uiv1alpha1 "github.com/rhobs/observability-operator/pkg/apis/uiplugin/v1alpha1"
 )
 
-var AcmErrorMsg = `if you intend to enable "acm-alerting" thanos querier url and alertmanager url needs to be configured in the custom resource UIPlugin. `
-var PersesErrorMsg = `if you intend to enable "perses-dashboards" a perses service name and namespace needs to be configured in the custom resource UIPlugin.`
-var AlertmanagerEmptyMsg = "alertmanager location is empty for plugin type monitoring."
-var ThanosEmptyMsg = "thanosQuerier location is empty for plugin type monitoring."
-var PersesNameEmptyMsg = "persesName location is empty for plugin type monitoring."
-var PersesNamespaceEmptyMsg = "persesNamespace location is empty for plugin type monitoring."
-var IncompatibleFeaturesAndConfigsErrorMsg = "UIPlugin configurations are incompatible with feature flags"
-
-func getConfigError(config *uiv1alpha1.MonitoringConfig) (bool, bool, bool, string) {
-	errorSlice := []string{}
-	errorMessage := ""
+/*
+Requirements for ACM enablement
+1. UIPlugin configuration requires acm.enabled, acm.thanosQuerier.Url, and acm.alertmanager.Url
+2. OpenShift Container Platform requirement: v4.14+
+3. Advanced Cluster Management: v2.11+
+*/
+func validateACMConfig(config *uiv1alpha1.MonitoringConfig, acmVersion string) bool {
+	enabled := config.ACM.Enabled
 
 	// alertManager and thanosQuerier url configurations are required to enable 'acm-alerting'
-	validAlertManagerUrl := config.Alertmanager.Url != ""
-	if !validAlertManagerUrl {
-		errorSlice = append(errorSlice, AlertmanagerEmptyMsg)
-	}
-
-	validThanosQuerierUrl := config.ThanosQuerier.Url != ""
-	if !validThanosQuerierUrl {
-		errorSlice = append(errorSlice, ThanosEmptyMsg)
-	}
+	validAlertManagerUrl := config.ACM.Alertmanager.Url != ""
+	validThanosQuerierUrl := config.ACM.ThanosQuerier.Url != ""
 	isValidAcmAlertingConfig := validAlertManagerUrl && validThanosQuerierUrl
 
-	// perses name and namespace are required to enable 'perses-dashboards'
-	validPersesName := config.Perses.Name != ""
-	if !validPersesName {
-		errorSlice = append(errorSlice, PersesNameEmptyMsg)
+	// "acm-alerting" feature is supported in ACM v2.11+
+	if !strings.HasPrefix(acmVersion, "v") {
+		acmVersion = "v" + acmVersion
 	}
-	validPersesNamespace := config.Perses.Namespace != ""
-	if !validPersesNamespace {
-		errorSlice = append(errorSlice, PersesNamespaceEmptyMsg)
-	}
-	isValidPersesConfig := validPersesName && validPersesNamespace
+	minACMVersionMet := semver.Compare(acmVersion, "v2.11") >= 0
 
-	// build error message by converting slice into one string
-	if len(errorSlice) > 0 {
-		// Add extra information in the error message based on type of incorrect configurations
-		if !isValidPersesConfig {
-			errorSlice = append([]string{PersesErrorMsg}, errorSlice...)
-		}
-		if !isValidAcmAlertingConfig {
-			errorSlice = append([]string{AcmErrorMsg}, errorSlice...)
-		}
-		errorMessage = strings.Join(errorSlice, "")
-	}
-
-	allConfigsInvalid := !isValidAcmAlertingConfig && !isValidPersesConfig
-
-	return allConfigsInvalid, isValidAcmAlertingConfig, isValidPersesConfig, errorMessage
+	return isValidAcmAlertingConfig && enabled && minACMVersionMet
 }
 
-func getBasePluginInfo(namespace, name, image string, features []string) *UIPluginInfo {
+/*
+Requirements for Perses enablement
+1. UIPlugin configuration requires perses.enabled
+if no acm.perses.namespace or acm.perses.serviceName is present
+then a default value will be set
+2.  OpenShift Container Platform requirement: v4.14+
+*/
+func validatePersesConfig(config *uiv1alpha1.MonitoringConfig) bool {
+	enabled := config.Perses.Enabled
+
+	// if perses.serviceName and perses.namespace are empty default values will be set
+	if config.Perses.ServiceName == "" {
+		config.Perses.ServiceName = "perses-api-http"
+	}
+	if config.Perses.Namespace == "" {
+		config.Perses.Namespace = "perses"
+	}
+
+	return enabled
+}
+
+/*
+Requirements for Incidnets enablement
+1. UIPlugin configuration required incidents.enabled
+2. OpenShift Container Platform  requirement: v4.18+
+*/
+func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion string) bool {
+	enabled := config.Incidents.Enabled
+
+	// normalize format of clusterVersion
+	if !strings.HasPrefix(clusterVersion, "v") {
+		clusterVersion = "v" + clusterVersion
+	}
+	// remove "-0.nightly" from "v4.18.0-0.nightly"
+	// this allow nightly versions to be used
+	// (semver would evalute "v4.18.0-0.nightly" as less than "v4.18" because its not a stable version)
+	clusterVersion = strings.Split(clusterVersion, "-")[0]
+
+	minClusterVersionMet := (semver.Compare(clusterVersion, "v4.18") >= 0)
+
+	return enabled && minClusterVersionMet
+}
+
+func addFeatureFlags(plugin *UIPluginInfo, features []string) {
+	featureField := fmt.Sprintf("-features=%s", strings.Join(features, ","))
+	plugin.ExtraArgs = append(plugin.ExtraArgs, featureField)
+}
+
+func getBasePluginInfo(namespace, name, image string) *UIPluginInfo {
 	return &UIPluginInfo{
 		Image:       image,
 		Name:        name,
 		ConsoleName: "monitoring-console-plugin",
 		DisplayName: "Monitoring Console Plugin",
 		ExtraArgs: []string{
-			fmt.Sprintf("-features=%s", strings.Join(features, ",")),
 			"-config-path=/opt/app-root/config",
 			"-static-path=/opt/app-root/web/dist",
 		},
@@ -135,8 +152,8 @@ func addPersesProxy(pluginInfo *UIPluginInfo, persesName string, persesNamespace
 
 func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string, config *uiv1alpha1.MonitoringConfig) {
 	pluginInfo.ExtraArgs = append(pluginInfo.ExtraArgs,
-		fmt.Sprintf("-alertmanager=%s", config.Alertmanager.Url),
-		fmt.Sprintf("-thanos-querier=%s", config.ThanosQuerier.Url),
+		fmt.Sprintf("-alertmanager=%s", config.ACM.Alertmanager.Url),
+		fmt.Sprintf("-thanos-querier=%s", config.ACM.ThanosQuerier.Url),
 	)
 	pluginInfo.Proxies = append(pluginInfo.Proxies,
 		osv1.ConsolePluginProxy{
@@ -188,49 +205,39 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, acmVersion string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, acmVersion string, clusterVersion string) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
 	}
-
-	// Validate UIPlugin configuration
-	allConfigsInvalid, validAcmAlertingConfig, validPersesConfig, errorMessage := getConfigError(config)
-	if allConfigsInvalid {
-		return nil, fmt.Errorf("%s", errorMessage)
+	if !config.ACM.Enabled && !config.Perses.Enabled && !config.Incidents.Enabled {
+		return nil, fmt.Errorf("monitoring configurations did not enabled any features")
 	}
 
-	//  Inject feature flags based on valid UIPlugin Configuration and version of dependencies
-	if (semver.Compare(acmVersion, "v2.11") >= 0) && validAcmAlertingConfig {
-		// "acm-alerting" feature is supported in ACM v2.11+
+	// Validate feature configuration and cluster conditions support enablement
+	isValidAcmConfig := validateACMConfig(config, acmVersion)
+	isValidPersesConfig := validatePersesConfig(config)
+	isValidIncidentsConfig := validateIncidentsConfig(config, clusterVersion)
+
+	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
+	if atLeastOneValidConfig == false {
+		return nil, fmt.Errorf("uiplugin monitoring configurations are invalid")
+	}
+
+	//  Add proxies and feature flags
+	pluginInfo := getBasePluginInfo(namespace, name, image)
+	if isValidAcmConfig {
+		addAcmAlertingProxy(pluginInfo, name, namespace, config)
 		features = append(features, "acm-alerting")
 	}
-	if validPersesConfig {
+	if isValidPersesConfig {
+		addPersesProxy(pluginInfo, config.Perses.ServiceName, config.Perses.Namespace)
 		features = append(features, "perses-dashboards")
 	}
-
-	// Validate at least one feature flag is present
-	persesDashboardsFeatureEnabled := slices.Contains(features, "perses-dashboards")
-	acmAlertingFeatureEnabled := slices.Contains(features, "acm-alerting")
-	if !acmAlertingFeatureEnabled && !persesDashboardsFeatureEnabled {
-		return nil, fmt.Errorf("monitoring feature flags were not set, check cluster compatibility")
+	if isValidIncidentsConfig {
+		features = append(features, "incidents")
 	}
-
-	// Validate at least one proxy can be added to monitoring plugin info
-	validPersesProxyConditions := persesDashboardsFeatureEnabled && validPersesConfig
-	validAcmAlertingProxyConditions := acmAlertingFeatureEnabled && validAcmAlertingConfig
-	invalidProxyConditions := !validPersesProxyConditions && !validAcmAlertingProxyConditions
-	if invalidProxyConditions {
-		return nil, fmt.Errorf("%s", IncompatibleFeaturesAndConfigsErrorMsg)
-	}
-
-	pluginInfo := getBasePluginInfo(namespace, name, image, features)
-	if validPersesProxyConditions {
-		addPersesProxy(pluginInfo, config.Perses.Name, config.Perses.Namespace)
-	}
-	if validAcmAlertingProxyConditions {
-		addAcmAlertingProxy(pluginInfo, name, namespace, config)
-	}
+	addFeatureFlags(pluginInfo, features)
 
 	return pluginInfo, nil
 }
