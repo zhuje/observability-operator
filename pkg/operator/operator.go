@@ -139,6 +139,8 @@ func New(ctx context.Context, cfg *OperatorConfiguration) (*Operator, error) {
 		clientCAController    *dynamiccertificates.ConfigMapCAController
 		servingCertController *dynamiccertificates.DynamicServingCertificateController
 	)
+
+	// FOR DEBUGGING LOCALLY -- comment out this section
 	if cfg.FeatureGates.OpenShift.Enabled {
 		// When running in OpenShift, the server uses HTTPS thanks to the
 		// service CA operator.
