@@ -2,6 +2,8 @@ package uiplugin
 
 import (
 	"fmt"
+	"log"
+	"reflect"
 	"strings"
 
 	osv1 "github.com/openshift/api/console/v1"
@@ -41,7 +43,13 @@ func validateACMConfig(config *uiv1alpha1.MonitoringConfig) bool {
 }
 
 func validatePersesConfig(config *uiv1alpha1.MonitoringConfig) bool {
-	return config.Perses != nil && config.Perses.Enabled
+	if config.Perses == nil {
+		return false
+	}
+	if reflect.TypeOf(config.Perses.Enabled).Kind() != reflect.Bool {
+		return false
+	}
+	return true
 }
 
 func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion string) bool {
@@ -59,6 +67,8 @@ func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion
 func addFeatureFlags(plugin *UIPluginInfo, features []string) {
 	featureField := fmt.Sprintf("-features=%s", strings.Join(features, ","))
 	plugin.ExtraArgs = append(plugin.ExtraArgs, featureField)
+
+	log.Println("!JZ addFeatureFlags() >> plugin.ExtraArgs = %v", plugin.ExtraArgs)
 }
 
 func getBasePluginInfo(namespace, name, image string) *UIPluginInfo {
@@ -181,6 +191,15 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
+func remove(features []string, targetFeature string) []string {
+	for i, feat := range features {
+		if feat == targetFeature {
+			return append(features[:i], features[i+1:]...)
+		}
+	}
+	return features
+}
+
 func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, clusterVersion string, healthAnalyzerImage string, persesImage string) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
@@ -197,6 +216,8 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		return nil, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
 	}
 
+	log.Println("!JZ atLeastOneValidConfig: %s", atLeastOneValidConfig)
+
 	//  Add proxies and feature flags
 	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if isValidAcmConfig {
@@ -204,9 +225,16 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		features = append(features, "acm-alerting")
 	}
 	if isValidPersesConfig {
+		persesEnabled := config.Perses.Enabled
 		addPersesProxy(pluginInfo, namespace)
 		pluginInfo.PersesImage = persesImage
-		features = append(features, "perses-dashboards")
+
+		log.Println("!JZ persesEnabled %s : ", persesEnabled)
+		if persesEnabled {
+			features = append(features, "perses-dashboards")
+		} else {
+			features = remove(features, "perses-dashboards")
+		}
 	}
 	if isValidIncidentsConfig {
 		pluginInfo.HealthAnalyzerImage = healthAnalyzerImage

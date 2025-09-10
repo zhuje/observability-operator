@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"log"
 	"sort"
 	"strings"
 	"text/template"
@@ -121,8 +122,14 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 		components = append(components, reconciler.NewUpdater(newHealthAnalyzerServiceMonitor(namespace), plugin))
 	}
 
+	persesEnabled := plugin.Spec.Monitoring.Perses.Enabled
+	log.Println("JZ! pluginInfo.PersesImage: %s", pluginInfo.PersesImage)
+	log.Println("JZ! persesEnabled: %s", persesEnabled)
+
+	// Check if this is a monitoring plugin and handle Perses components
+	persesServiceAccountName := "perses" + serviceAccountSuffix
 	if pluginInfo.PersesImage != "" {
-		persesServiceAccountName := "perses" + serviceAccountSuffix
+		// Perses is enabled - create/update components
 		components = append(components, reconciler.NewUpdater(newServiceAccount("perses", namespace), plugin))
 		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, persesServiceAccountName, "system:auth-delegator", persesServiceAccountName+":system:auth-delegator"), plugin))
 		components = append(components, reconciler.NewUpdater(newPersesClusterRole(), plugin))
@@ -130,7 +137,18 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 		components = append(components, reconciler.NewUpdater(newPerses(namespace, pluginInfo.PersesImage), plugin))
 		components = append(components, reconciler.NewUpdater(newAcceleratorsDatasource(namespace), plugin))
 		components = append(components, reconciler.NewUpdater(newAcceleratorsDashboard(namespace), plugin))
+	} else {
+		// JZ NOTE: Should be ELSE IF plugin.Spec.Monitoring.Perses.Enabled = false >> then delete all theses components
+		// ADD deletion of Perses Service and PersesProxy
+		components = append(components, reconciler.NewDeleter(newAcceleratorsDashboard(namespace)))
+		components = append(components, reconciler.NewDeleter(newAcceleratorsDatasource(namespace)))
+		components = append(components, reconciler.NewDeleter(newPerses(namespace, "")))
+		components = append(components, reconciler.NewDeleter(newClusterRoleBinding(namespace, persesServiceAccountName, "perses-cr", persesServiceAccountName+":perses-cr")))
+		components = append(components, reconciler.NewDeleter(newPersesClusterRole()))
+		components = append(components, reconciler.NewDeleter(newClusterRoleBinding(namespace, persesServiceAccountName, "system:auth-delegator", persesServiceAccountName+":system:auth-delegator")))
+		components = append(components, reconciler.NewDeleter(newServiceAccount("perses", namespace)))
 	}
+
 	return components
 }
 
