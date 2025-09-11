@@ -128,7 +128,7 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 
 	// Check if this is a monitoring plugin and handle Perses components
 	persesServiceAccountName := "perses" + serviceAccountSuffix
-	if pluginInfo.PersesImage != "" {
+	if persesEnabled {
 		// Perses is enabled - create/update components
 		components = append(components, reconciler.NewUpdater(newServiceAccount("perses", namespace), plugin))
 		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, persesServiceAccountName, "system:auth-delegator", persesServiceAccountName+":system:auth-delegator"), plugin))
@@ -148,6 +148,8 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 		components = append(components, reconciler.NewDeleter(newClusterRoleBinding(namespace, persesServiceAccountName, "system:auth-delegator", persesServiceAccountName+":system:auth-delegator")))
 		components = append(components, reconciler.NewDeleter(newServiceAccount("perses", namespace)))
 	}
+
+	log.Println("JZ! components: %v", components)
 
 	return components
 }

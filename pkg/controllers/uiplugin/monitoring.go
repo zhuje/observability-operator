@@ -136,6 +136,21 @@ func addPersesProxy(pluginInfo *UIPluginInfo, namespace string) {
 	})
 }
 
+func removePersesProxy(pluginInfo *UIPluginInfo) {
+	for i, proxy := range pluginInfo.Proxies {
+		if proxy.Alias == "perses" {
+			pluginInfo.Proxies = append(pluginInfo.Proxies[:i], pluginInfo.Proxies[i+1:]...)
+			break
+		}
+	}
+	for i, proxy := range pluginInfo.LegacyProxies {
+		if proxy.Alias == "perses" {
+			pluginInfo.LegacyProxies = append(pluginInfo.LegacyProxies[:i], pluginInfo.LegacyProxies[i+1:]...)
+			break
+		}
+	}
+}
+
 func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string, config *uiv1alpha1.MonitoringConfig) {
 	pluginInfo.ExtraArgs = append(pluginInfo.ExtraArgs,
 		fmt.Sprintf("-alertmanager=%s", config.ACM.Alertmanager.Url),
@@ -226,14 +241,16 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	}
 	if isValidPersesConfig {
 		persesEnabled := config.Perses.Enabled
-		addPersesProxy(pluginInfo, namespace)
-		pluginInfo.PersesImage = persesImage
-
 		log.Println("!JZ persesEnabled %s : ", persesEnabled)
 		if persesEnabled {
 			features = append(features, "perses-dashboards")
+			addPersesProxy(pluginInfo, namespace)
+			pluginInfo.PersesImage = persesImage
+
 		} else {
 			features = remove(features, "perses-dashboards")
+			removePersesProxy(pluginInfo)
+			pluginInfo.PersesImage = ""
 		}
 	}
 	if isValidIncidentsConfig {
@@ -241,6 +258,9 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		features = append(features, "incidents")
 	}
 	addFeatureFlags(pluginInfo, features)
+
+	log.Println("!JZ pluginInfo.Proxies %s : ", pluginInfo.Proxies)
+	log.Println("!JZ pluginInfo.LegacyProxies %s : ", pluginInfo.LegacyProxies)
 
 	return pluginInfo, nil
 }
