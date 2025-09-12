@@ -263,7 +263,10 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger)
 
 	if err != nil {
+		// JZ NOTE: LEFT OFF HERE -- need to write the condition that if error "no monitoring-console-plugin features enabled"
+		rm.deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
 		logger.Error(err, "failed to reconcile plugin")
+		log.Println("!JZ deregisterPluginFromConsole")
 		return ctrl.Result{}, err
 	}
 
@@ -289,6 +292,7 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return rm.updateStatus(ctx, req, plugin, nil), nil
 }
 
+// JZ update with recError failed to reconcile because no features !
 func (rm resourceManager) updateStatus(ctx context.Context, req ctrl.Request, pl *uiv1alpha1.UIPlugin, recError error) ctrl.Result {
 	logger := rm.logger.WithValues("plugin", req.NamespacedName)
 
