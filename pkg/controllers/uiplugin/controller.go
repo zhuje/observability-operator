@@ -2,6 +2,7 @@ package uiplugin
 
 import (
 	"context"
+	"log"
 	"slices"
 	"time"
 
@@ -257,6 +258,8 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// JZ NOTE: entrypoint for UIPlugin
+	log.Println("!JZ TIMESTAMP %s", time.Now())
 	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger)
 
 	if err != nil {
@@ -264,6 +267,7 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// JZ NOTE: pluginComponentReconcilers >> Add methods to delete components
 	reconcilers := pluginComponentReconcilers(plugin, *pluginInfo, rm.clusterVersion)
 	for _, reconciler := range reconcilers {
 		err := reconciler.Reconcile(ctx, rm.k8sClient, rm.scheme)

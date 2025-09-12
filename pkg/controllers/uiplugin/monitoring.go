@@ -1,7 +1,10 @@
 package uiplugin
 
 import (
+	"errors"
 	"fmt"
+	"log"
+	"reflect"
 	"strings"
 
 	osv1 "github.com/openshift/api/console/v1"
@@ -41,7 +44,13 @@ func validateACMConfig(config *uiv1alpha1.MonitoringConfig) bool {
 }
 
 func validatePersesConfig(config *uiv1alpha1.MonitoringConfig) bool {
-	return config.Perses != nil && config.Perses.Enabled
+	if config.Perses == nil {
+		return false
+	}
+	if reflect.TypeOf(config.Perses.Enabled).Kind() != reflect.Bool {
+		return false
+	}
+	return true
 }
 
 func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion string) bool {
@@ -59,6 +68,16 @@ func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion
 func addFeatureFlags(plugin *UIPluginInfo, features []string) {
 	featureField := fmt.Sprintf("-features=%s", strings.Join(features, ","))
 	plugin.ExtraArgs = append(plugin.ExtraArgs, featureField)
+	log.Println("!JZ addFeatureFlags() >> plugin.ExtraArgs = %v", plugin.ExtraArgs)
+}
+
+func remove(features []string, targetFeature string) []string {
+	for i, feat := range features {
+		if feat == targetFeature {
+			return append(features[:i], features[i+1:]...)
+		}
+	}
+	return features
 }
 
 func getBasePluginInfo(namespace, name, image string) *UIPluginInfo {
@@ -192,27 +211,49 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	isValidPersesConfig := validatePersesConfig(config)
 	isValidIncidentsConfig := validateIncidentsConfig(config, clusterVersion)
 
+	log.Println("!JZ 1. monitoring.go >> isValidPersesConfig: ", isValidPersesConfig)
+
 	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
+	log.Println("!JZ 2. monitoring.go >> atLeastOneValidConfig: ", atLeastOneValidConfig)
+
 	if !atLeastOneValidConfig {
 		return nil, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
 	}
 
 	//  Add proxies and feature flags
+	persesEnabled := config.Perses.Enabled
+	log.Println("!JZ 3. monitoring.go >> persesEnabled: ", persesEnabled)
+
 	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if isValidAcmConfig {
 		addAcmAlertingProxy(pluginInfo, name, namespace, config)
 		features = append(features, "acm-alerting")
 	}
 	if isValidPersesConfig {
-		addPersesProxy(pluginInfo, namespace)
-		pluginInfo.PersesImage = persesImage
-		features = append(features, "perses-dashboards")
+		// addPersesProxy(pluginInfo, namespace)
+		if persesEnabled {
+			features = append(features, "perses-dashboards")
+			pluginInfo.PersesImage = persesImage
+		} else {
+			features = remove(features, "perses-dashboards")
+			pluginInfo.PersesImage = ""
+		}
+
+		log.Println("!JZ 4. monitoring.go >> features: ", features)
+		log.Println("!JZ 5. monitoring.go >> pluginInfo.PersesImage: ", pluginInfo.PersesImage)
 	}
 	if isValidIncidentsConfig {
 		pluginInfo.HealthAnalyzerImage = healthAnalyzerImage
 		features = append(features, "incidents")
 	}
+
+	if len(features) <= 0 {
+		log.Println("!JZ 6.- monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
+		return pluginInfo, errors.New("no monitoring-console-plugin features enabled")
+	}
+
 	addFeatureFlags(pluginInfo, features)
+	log.Println("!JZ 6.+ monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
 
 	return pluginInfo, nil
 }
