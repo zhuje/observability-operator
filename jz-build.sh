@@ -5,9 +5,11 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 ENDCOLOR='\033[0m' 
 
-# Define variables with default values.
-# The ':-' syntax provides a default if the variable is not set.
-VERSION="${VERSION:-1.0.0-dev-sept12-1204}"
+# Get the current date and time in 'monDD-HHMM' lowercase format
+# For example: sep12-1216
+TIMESTAMP=$(date +'%b%d-%H%M' | tr '[:upper:]' '[:lower:]')
+
+VERSION="${VERSION:-1.0.0-dev-${TIMESTAMP}}"
 IMG_BASE="${IMG_BASE:-"quay.io/jezhu/observability-operator"}"
 IMAGE="${IMG_BASE}:${VERSION}"
 

@@ -221,8 +221,24 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	}
 
 	//  Add proxies and feature flags
-	persesEnabled := config.Perses.Enabled
+	var persesEnabled bool
+	if config != nil && config.Perses != nil {
+		persesEnabled = config.Perses.Enabled
+	}
+
+	var incidentsEnabled bool
+	if config != nil && config.Incidents != nil {
+		incidentsEnabled = config.Incidents.Enabled
+	}
+
+	var acmEnabled bool
+	if config != nil && config.ACM != nil {
+		acmEnabled = config.ACM.Enabled
+	}
+
 	log.Println("!JZ 3. monitoring.go >> persesEnabled: ", persesEnabled)
+	log.Println("!JZ 3. monitoring.go >> incidentsEnabled: ", incidentsEnabled)
+	log.Println("!JZ 3. monitoring.go >> acmEnabled: ", acmEnabled)
 
 	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if isValidAcmConfig {
@@ -243,11 +259,17 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 		log.Println("!JZ 5. monitoring.go >> pluginInfo.PersesImage: ", pluginInfo.PersesImage)
 	}
 	if isValidIncidentsConfig {
-		pluginInfo.HealthAnalyzerImage = healthAnalyzerImage
-		features = append(features, "incidents")
+		if incidentsEnabled {
+			pluginInfo.HealthAnalyzerImage = healthAnalyzerImage
+			features = append(features, "incidents")
+		} else {
+			features = remove(features, "incidents")
+			pluginInfo.HealthAnalyzerImage = ""
+		}
 	}
 
 	if len(features) <= 0 {
+		// JZ NOTE: LEFT OFF HERE add back the deregistering of monitoring-console-plugin here
 		log.Println("!JZ 6.- monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
 		return pluginInfo, errors.New("no monitoring-console-plugin features enabled")
 	}
