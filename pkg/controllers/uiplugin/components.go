@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"log"
 	"sort"
 	"strings"
 	"text/template"
@@ -110,7 +111,9 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 		}
 	}
 
+	log.Println("!JZ pluginInfo.HealthAnalyzerImage: %s, namespace: %s", pluginInfo.HealthAnalyzerImage, namespace)
 	if pluginInfo.HealthAnalyzerImage != "" {
+		log.Println("!JZ pluginInfo.HealthAnalyzerImage != %t", pluginInfo.HealthAnalyzerImage != "")
 		serviceAccountName := plugin.Name + serviceAccountSuffix
 		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "cluster-monitoring-view", "cluster-monitoring-view"), plugin))
 		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "system:auth-delegator", serviceAccountName+":system:auth-delegator"), plugin))
@@ -121,7 +124,9 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 		components = append(components, reconciler.NewUpdater(newHealthAnalyzerServiceMonitor(namespace), plugin))
 	}
 
+	log.Println("!JZ pluginInfo.PersesImage: %s, namespace: %s", pluginInfo.PersesImage, namespace)
 	if pluginInfo.PersesImage != "" {
+		log.Println("!JZ pluginInfo.PersesImage != %t", pluginInfo.PersesImage != "")
 		persesServiceAccountName := "perses" + serviceAccountSuffix
 		components = append(components, reconciler.NewUpdater(newServiceAccount("perses", namespace), plugin))
 		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, persesServiceAccountName, "system:auth-delegator", persesServiceAccountName+":system:auth-delegator"), plugin))
