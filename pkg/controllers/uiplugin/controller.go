@@ -260,14 +260,13 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// JZ NOTE: entrypoint for UIPlugin
 	log.Println("!JZ TIMESTAMP %s", time.Now())
-	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger)
+	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger, rm.deregisterPluginFromConsole)
 
 	if err != nil {
 		// JZ NOTE: LEFT OFF HERE -- need to write the condition that if error "no monitoring-console-plugin features enabled"
 		// rm.deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
-		logger.Error(err, "failed to reconcile plugin")
-		log.Println("!JZ deregisterPluginFromConsole")
-		return ctrl.Result{}, err
+		log.Println("!JZ 7. controller.go >> err := PluginInfoBuilder = %v", err)
+		return rm.updateStatus(ctx, req, plugin, err), err
 	}
 
 	// JZ NOTE: pluginComponentReconcilers >> Add methods to delete components
@@ -376,12 +375,15 @@ func (rm resourceManager) deregisterPluginFromConsole(ctx context.Context, plugi
 		return nil
 	}
 
+	log.Println("!JZ deregisterPluginFromConsole >> BEFORE cluster.Spec.Plugins: %v", cluster.Spec.Plugins)
 	clusterPlugins := slices.DeleteFunc(cluster.Spec.Plugins, func(currentPluginName string) bool {
 		return currentPluginName == pluginConsoleName
 	})
 
 	// Deregister the plugin from the console
 	cluster.Spec.Plugins = clusterPlugins
+
+	log.Println("!JZ deregisterPluginFromConsole >> AFTER cluster.Spec.Plugins: %v", cluster.Spec.Plugins)
 
 	if err := reconciler.NewMerger(cluster).Reconcile(ctx, rm.k8sClient, rm.scheme); err != nil {
 		return err

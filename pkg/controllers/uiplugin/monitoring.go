@@ -1,12 +1,14 @@
 package uiplugin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"reflect"
 	"strings"
 
+	"github.com/go-logr/logr"
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	persesv1alpha1 "github.com/rhobs/perses-operator/api/v1alpha1"
@@ -200,7 +202,7 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, clusterVersion string, healthAnalyzerImage string, persesImage string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, clusterVersion string, healthAnalyzerImage string, persesImage string, deregisterPluginFromConsole func(context.Context, string) error, ctx context.Context, logger logr.Logger) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
@@ -270,6 +272,8 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 
 	if len(features) <= 0 {
 		// JZ NOTE: LEFT OFF HERE add back the deregistering of monitoring-console-plugin here
+		logger.V(6).Info("deregistering plugin from the console")
+		deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
 		log.Println("!JZ 6.- monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
 		return pluginInfo, errors.New("no monitoring-console-plugin features enabled")
 	}
