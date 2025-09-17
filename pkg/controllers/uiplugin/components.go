@@ -158,7 +158,7 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 			reconciler.NewDeleter(newClusterRoleBinding(namespace, persesServiceAccountName, "perses-cr", persesServiceAccountName+":perses-cr")),
 			reconciler.NewDeleter(newPerses(namespace, pluginInfo.PersesImage)),
 			reconciler.NewDeleter(newAcceleratorsDatasource(namespace)),
-			reconciler.NewDeleter(newAcceleratorsDatasource(namespace)),
+			reconciler.NewDeleter(newAcceleratorsDashboard(namespace)),
 		)
 	} else if pluginInfo.PersesImage != "" {
 		log.Println("!JZ pluginInfo.PersesImage != empty :", pluginInfo.PersesImage != "")
