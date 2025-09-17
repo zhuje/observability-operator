@@ -1,9 +1,12 @@
 package uiplugin
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"strings"
 
+	"github.com/go-logr/logr"
 	osv1 "github.com/openshift/api/console/v1"
 	osv1alpha1 "github.com/openshift/api/console/v1alpha1"
 	persesv1alpha1 "github.com/rhobs/perses-operator/api/v1alpha1"
@@ -41,7 +44,14 @@ func validateACMConfig(config *uiv1alpha1.MonitoringConfig) bool {
 }
 
 func validatePersesConfig(config *uiv1alpha1.MonitoringConfig) bool {
+	// if config.Perses == nil {
+	// 	return false
+	// }
+	// if reflect.TypeOf(config.Perses.Enabled).Kind() != reflect.Bool {
+	// 	return false
+	// }
 	return config.Perses != nil && config.Perses.Enabled
+
 }
 
 func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion string) bool {
@@ -59,7 +69,17 @@ func validateIncidentsConfig(config *uiv1alpha1.MonitoringConfig, clusterVersion
 func addFeatureFlags(plugin *UIPluginInfo, features []string) {
 	featureField := fmt.Sprintf("-features=%s", strings.Join(features, ","))
 	plugin.ExtraArgs = append(plugin.ExtraArgs, featureField)
+	log.Println("!JZ addFeatureFlags() >> plugin.ExtraArgs = %v", plugin.ExtraArgs)
 }
+
+// func remove(features []string, targetFeature string) []string {
+// 	for i, feat := range features {
+// 		if feat == targetFeature {
+// 			return append(features[:i], features[i+1:]...)
+// 		}
+// 	}
+// 	return features
+// }
 
 func getBasePluginInfo(namespace, name, image string) *UIPluginInfo {
 	return &UIPluginInfo{
@@ -181,7 +201,7 @@ func addAcmAlertingProxy(pluginInfo *UIPluginInfo, name string, namespace string
 	)
 }
 
-func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, clusterVersion string, healthAnalyzerImage string, persesImage string) (*UIPluginInfo, error) {
+func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, image string, features []string, clusterVersion string, healthAnalyzerImage string, persesImage string, deregisterPluginFromConsole func(context.Context, string) error, ctx context.Context, logger logr.Logger) (*UIPluginInfo, error) {
 	config := plugin.Spec.Monitoring
 	if config == nil {
 		return nil, fmt.Errorf("monitoring configuration can not be empty for plugin type %s", plugin.Spec.Type)
@@ -192,27 +212,64 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	isValidPersesConfig := validatePersesConfig(config)
 	isValidIncidentsConfig := validateIncidentsConfig(config, clusterVersion)
 
+	log.Println("!JZ 1. monitoring.go >> isValidPersesConfig: ", isValidPersesConfig)
+
 	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
+	log.Println("!JZ 2. monitoring.go >> atLeastOneValidConfig: ", atLeastOneValidConfig)
+
 	if !atLeastOneValidConfig {
 		return nil, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
 	}
 
 	//  Add proxies and feature flags
+	var persesEnabled bool
+	if config != nil && config.Perses != nil {
+		persesEnabled = config.Perses.Enabled
+	}
+
+	var incidentsEnabled bool
+	if config != nil && config.Incidents != nil {
+		incidentsEnabled = config.Incidents.Enabled
+	}
+
+	var acmEnabled bool
+	if config != nil && config.ACM != nil {
+		acmEnabled = config.ACM.Enabled
+	}
+
+	log.Println("!JZ 3. monitoring.go >> persesEnabled: ", persesEnabled)
+	log.Println("!JZ 3. monitoring.go >> incidentsEnabled: ", incidentsEnabled)
+	log.Println("!JZ 3. monitoring.go >> acmEnabled: ", acmEnabled)
+
 	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if isValidAcmConfig {
 		addAcmAlertingProxy(pluginInfo, name, namespace, config)
 		features = append(features, "acm-alerting")
 	}
 	if isValidPersesConfig {
-		addPersesProxy(pluginInfo, namespace)
-		pluginInfo.PersesImage = persesImage
 		features = append(features, "perses-dashboards")
+		pluginInfo.PersesImage = persesImage
 	}
 	if isValidIncidentsConfig {
 		pluginInfo.HealthAnalyzerImage = healthAnalyzerImage
 		features = append(features, "incidents")
 	}
+
+	log.Println("!JZ 4. monitoring.go >> features: ", features)
+	log.Println("!JZ 5. monitoring.go >> pluginInfo.Korrel8rImage: ", pluginInfo.Korrel8rImage)
+	log.Println("!JZ 5. monitoring.go >> pluginInfo.PersesImage: ", pluginInfo.PersesImage)
+	log.Println("!JZ 5. monitoring.go >> pluginInfo.HealthAnalyzerImage: ", pluginInfo.HealthAnalyzerImage)
+
+	// Deregister monitoring-console-plugin if no features are enabled
+	// if len(features) <= 0 {
+	// 	logger.V(6).Info("deregistering plugin from the console")
+	// 	deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
+	// 	log.Println("!JZ 6.- monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
+	// 	return pluginInfo, errors.New("no monitoring-console-plugin features enabled")
+	// }
+
 	addFeatureFlags(pluginInfo, features)
+	log.Println("!JZ 6.+ monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
 
 	return pluginInfo, nil
 }

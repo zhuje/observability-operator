@@ -2,6 +2,7 @@ package uiplugin
 
 import (
 	"context"
+	"log"
 	"slices"
 	"time"
 
@@ -257,13 +258,18 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger)
+	// JZ NOTE: entrypoint for UIPlugin
+	log.Println("!JZ TIMESTAMP %s", time.Now())
+	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger, rm.deregisterPluginFromConsole)
 
 	if err != nil {
-		logger.Error(err, "failed to reconcile plugin")
-		return ctrl.Result{}, err
+		// JZ NOTE: LEFT OFF HERE -- need to write the condition that if error "no monitoring-console-plugin features enabled"
+		// rm.deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
+		log.Println("!JZ 7. controller.go >> err := PluginInfoBuilder = %v", err)
+		return rm.updateStatus(ctx, req, plugin, err), err
 	}
 
+	// JZ NOTE: pluginComponentReconcilers >> Add methods to delete components
 	reconcilers := pluginComponentReconcilers(plugin, *pluginInfo, rm.clusterVersion)
 	for _, reconciler := range reconcilers {
 		err := reconciler.Reconcile(ctx, rm.k8sClient, rm.scheme)
@@ -285,6 +291,7 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return rm.updateStatus(ctx, req, plugin, nil), nil
 }
 
+// JZ Notes update with recError failed to reconcile because no features !
 func (rm resourceManager) updateStatus(ctx context.Context, req ctrl.Request, pl *uiv1alpha1.UIPlugin, recError error) ctrl.Result {
 	logger := rm.logger.WithValues("plugin", req.NamespacedName)
 
@@ -307,6 +314,7 @@ func (rm resourceManager) updateStatus(ctx context.Context, req ctrl.Request, pl
 			},
 		}
 	} else {
+		// JZ NOTES: if no features !
 		pl.Status.Conditions = []uiv1alpha1.Condition{
 			{
 				Type:               uiv1alpha1.ReconciledCondition,
@@ -367,12 +375,15 @@ func (rm resourceManager) deregisterPluginFromConsole(ctx context.Context, plugi
 		return nil
 	}
 
+	log.Println("!JZ deregisterPluginFromConsole >> BEFORE cluster.Spec.Plugins: %v", cluster.Spec.Plugins)
 	clusterPlugins := slices.DeleteFunc(cluster.Spec.Plugins, func(currentPluginName string) bool {
 		return currentPluginName == pluginConsoleName
 	})
 
 	// Deregister the plugin from the console
 	cluster.Spec.Plugins = clusterPlugins
+
+	log.Println("!JZ deregisterPluginFromConsole >> AFTER cluster.Spec.Plugins: %v", cluster.Spec.Plugins)
 
 	if err := reconciler.NewMerger(cluster).Reconcile(ctx, rm.k8sClient, rm.scheme); err != nil {
 		return err
