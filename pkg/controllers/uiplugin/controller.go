@@ -260,14 +260,7 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// JZ NOTE: entrypoint for UIPlugin
 	log.Println("!JZ TIMESTAMP %s", time.Now())
-	pluginInfo, err := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger, rm.deregisterPluginFromConsole)
-
-	if err != nil {
-		// JZ NOTE: LEFT OFF HERE -- need to write the condition that if error "no monitoring-console-plugin features enabled"
-		// rm.deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
-		log.Println("!JZ 7. controller.go >> err := PluginInfoBuilder = %v", err)
-		return rm.updateStatus(ctx, req, plugin, err), err
-	}
+	pluginInfo, pluginInfoErr := PluginInfoBuilder(ctx, rm.k8sClient, rm.k8sDynamicClient, plugin, rm.pluginConf, compatibilityInfo, rm.clusterVersion, rm.logger, rm.deregisterPluginFromConsole)
 
 	// JZ NOTE: pluginComponentReconcilers >> Add methods to delete components
 	reconcilers := pluginComponentReconcilers(plugin, *pluginInfo, rm.clusterVersion)
@@ -282,6 +275,11 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if err != nil {
 			return rm.updateStatus(ctx, req, plugin, err), err
 		}
+	}
+
+	if pluginInfoErr != nil {
+		// If features are disabled allow pluginComponentReconcilers to remove uiplugin-related components before status update
+		return rm.updateStatus(ctx, req, plugin, pluginInfoErr), pluginInfoErr
 	}
 
 	if err := rm.registerPluginWithConsole(ctx, pluginInfo); err != nil {

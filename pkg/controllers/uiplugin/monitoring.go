@@ -217,8 +217,9 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	atLeastOneValidConfig := isValidAcmConfig || isValidPersesConfig || isValidIncidentsConfig
 	log.Println("!JZ 2. monitoring.go >> atLeastOneValidConfig: ", atLeastOneValidConfig)
 
+	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if !atLeastOneValidConfig {
-		return nil, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
+		return pluginInfo, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
 	}
 
 	//  Add proxies and feature flags
@@ -241,7 +242,6 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	log.Println("!JZ 3. monitoring.go >> incidentsEnabled: ", incidentsEnabled)
 	log.Println("!JZ 3. monitoring.go >> acmEnabled: ", acmEnabled)
 
-	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if isValidAcmConfig {
 		addAcmAlertingProxy(pluginInfo, name, namespace, config)
 		features = append(features, "acm-alerting")
@@ -259,14 +259,6 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 	log.Println("!JZ 5. monitoring.go >> pluginInfo.Korrel8rImage: ", pluginInfo.Korrel8rImage)
 	log.Println("!JZ 5. monitoring.go >> pluginInfo.PersesImage: ", pluginInfo.PersesImage)
 	log.Println("!JZ 5. monitoring.go >> pluginInfo.HealthAnalyzerImage: ", pluginInfo.HealthAnalyzerImage)
-
-	// Deregister monitoring-console-plugin if no features are enabled
-	// if len(features) <= 0 {
-	// 	logger.V(6).Info("deregistering plugin from the console")
-	// 	deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
-	// 	log.Println("!JZ 6.- monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)
-	// 	return pluginInfo, errors.New("no monitoring-console-plugin features enabled")
-	// }
 
 	addFeatureFlags(pluginInfo, features)
 	log.Println("!JZ 6.+ monitoring.go >> pluginInfo.ExtraArgs = %v", pluginInfo.ExtraArgs)

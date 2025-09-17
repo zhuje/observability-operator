@@ -111,10 +111,6 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 	if config != nil && config.Incidents != nil {
 		incidentsEnabled = config.Incidents.Enabled
 	}
-	// var acmEnabled bool
-	// if config != nil && config.ACM != nil {
-	// 	acmEnabled = config.ACM.Enabled
-	// }
 
 	if pluginInfo.Korrel8rImage != "" {
 		components = append(components, reconciler.NewUpdater(newKorrel8rService(korrel8rName, namespace), plugin))
@@ -127,16 +123,7 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 
 	serviceAccountName := plugin.Name + serviceAccountSuffix
 	log.Println("!JZ pluginInfo.HealthAnalyzerImage: %s, namespace: %s", pluginInfo.HealthAnalyzerImage, namespace)
-	if pluginInfo.HealthAnalyzerImage != "" {
-		log.Println("!JZ pluginInfo.HealthAnalyzerImage != %t", pluginInfo.HealthAnalyzerImage != "")
-		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "cluster-monitoring-view", "cluster-monitoring-view"), plugin))
-		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "system:auth-delegator", serviceAccountName+":system:auth-delegator"), plugin))
-		components = append(components, reconciler.NewUpdater(newHealthAnalyzerPrometheusRole(namespace), plugin))
-		components = append(components, reconciler.NewUpdater(newHealthAnalyzerPrometheusRoleBinding(namespace), plugin))
-		components = append(components, reconciler.NewUpdater(newHealthAnalyzerService(namespace), plugin))
-		components = append(components, reconciler.NewUpdater(newHealthAnalyzerDeployment(namespace, serviceAccountName, pluginInfo), plugin))
-		// components = append(components, reconciler.NewUpdater(newHealthAnalyzerServiceMonitor(namespace), plugin))
-	} else if !incidentsEnabled {
+	if !incidentsEnabled {
 		serviceAccountName := plugin.Name + serviceAccountSuffix
 		components = append(components,
 			reconciler.NewDeleter(newClusterRoleBinding(namespace, serviceAccountName, "cluster-monitoring-view", "cluster-monitoring-view")),
@@ -145,8 +132,19 @@ func pluginComponentReconcilers(plugin *uiv1alpha1.UIPlugin, pluginInfo UIPlugin
 			reconciler.NewDeleter(newHealthAnalyzerPrometheusRoleBinding(namespace)),
 			reconciler.NewDeleter(newHealthAnalyzerService(namespace)),
 			reconciler.NewDeleter(newHealthAnalyzerDeployment(namespace, serviceAccountName, pluginInfo)),
+			// ! JZ Remove comment : testing only
 			// reconciler.NewDeleter(newHealthAnalyzerServiceMonitor(namespace), plugin),
 		)
+	} else if pluginInfo.HealthAnalyzerImage != "" {
+		log.Println("!JZ pluginInfo.HealthAnalyzerImage != %t", pluginInfo.HealthAnalyzerImage != "")
+		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "cluster-monitoring-view", "cluster-monitoring-view"), plugin))
+		components = append(components, reconciler.NewUpdater(newClusterRoleBinding(namespace, serviceAccountName, "system:auth-delegator", serviceAccountName+":system:auth-delegator"), plugin))
+		components = append(components, reconciler.NewUpdater(newHealthAnalyzerPrometheusRole(namespace), plugin))
+		components = append(components, reconciler.NewUpdater(newHealthAnalyzerPrometheusRoleBinding(namespace), plugin))
+		components = append(components, reconciler.NewUpdater(newHealthAnalyzerService(namespace), plugin))
+		components = append(components, reconciler.NewUpdater(newHealthAnalyzerDeployment(namespace, serviceAccountName, pluginInfo), plugin))
+		// ! JZ Remove comment : testing only
+		// components = append(components, reconciler.NewUpdater(newHealthAnalyzerServiceMonitor(namespace), plugin))
 	}
 
 	log.Println("!JZ pluginInfo.PersesImage: %s, namespace: %s", pluginInfo.PersesImage, namespace)
