@@ -219,6 +219,7 @@ func createMonitoringPluginInfo(plugin *uiv1alpha1.UIPlugin, namespace, name, im
 
 	pluginInfo := getBasePluginInfo(namespace, name, image)
 	if !atLeastOneValidConfig {
+		deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type])
 		return pluginInfo, fmt.Errorf("all uiplugin monitoring configurations are invalid or not supported in this cluster version")
 	}
 
