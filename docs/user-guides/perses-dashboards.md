@@ -39,9 +39,7 @@ kubectl wait --for=condition=Available --timeout=10s uiplugins monitoring
 
 If you open the OpenShift console, you should see the new `Observe > Dashboards (Perses)` menu. Once `PersesDashboard`,  `PersesDatasource`, and `PersesGlobalDatasource` resources are created and the appropriate RBAC permissions are granted, a namespace selector will be available to show dashboards by the namespace(s) where the user has been granted RBAC permissions.
 
-Once the Monitoring UI Plugin is installed with Perses enabled, the Cluster Observability Operator deploys the [Perses Operator](https://github.com/perses/perses-operator), which is responsible for managing Perses dashboards and datasources. The COO also installs the `PersesDashboard`, `PersesDatasource` and `PersesGlobalDatasource` Custom Resources Definitions (CRDs). These CRDs are namespaced-scoped which allows to setup RBAC policies for them using the standard Kubernetes RBAC model.
-
-Please refer to the [Monitoring UI Plugin](https://github.com/rhobs/observability-operator/blob/main/docs/user-guides/observability-ui-plugins.md#plugin-creation-4) documentation for more details.
+Once the Monitoring UI Plugin is installed with Perses enabled, the Cluster Observability Operator deploys the [Perses Operator](https://github.com/rhobs/perses-operator), which is responsible for managing Perses dashboards and datasources. The COO also installs the `PersesDashboard`, `PersesDatasource` and `PersesGlobalDatasource` Custom Resources Definitions (CRDs). These CRDs are namespaced-scoped which allows to setup RBAC policies for them using the standard Kubernetes RBAC model.
 
 ### Deploying an example dashboard
 
@@ -66,7 +64,11 @@ Go to the `Observe > Dashboards (Perses)` menu in the OpenShift console and sele
 
 ![Console](perses-dashboards/assets/console.png)
 
-Many other dashboards can be found either in the upstream [Perses operator](https://github.com/perses/perses-operator/blob/main/config/samples/openshift) repository or in the [Perses community mixins](github.com/perses/community-mixins) repository.
+### Additional resources
+
+* See the [perses-operator user guide](https://github.com/rhobs/perses-operator/blob/main/docs/user-guide.md) for more information on Perses custom resource management and example configurations.
+* See the [Monitoring UI Plugin user guide](https://github.com/rhobs/observability-operator/blob/main/docs/user-guides/observability-ui-plugins.md#plugin-creation-4) to learn about the Monitoring UI Plugin configuration.
+* Find [OpenShift-specific dashboards](https://github.com/perses/perses-operator/blob/main/config/samples/openshift) from the upstream Perses operator repository and community dashboards from the [Perses community mixins](github.com/perses/community-mixins) repository.
 
 ## Developing new dashboards
 
