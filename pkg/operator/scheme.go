@@ -47,3 +47,12 @@ func NewScheme(cfg *OperatorConfiguration) *runtime.Scheme {
 
 	return scheme
 }
+
+// NewOpenShiftScheme creates a minimal scheme for OpenShift API access
+// Used for early TLS profile fetching before the full operator manager starts
+func NewOpenShiftScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(configv1.Install(scheme))
+	return scheme
+}
