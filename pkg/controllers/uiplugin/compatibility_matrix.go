@@ -44,6 +44,7 @@ var compatibilityMatrix = []CompatibilityEntry{
 		ImageKey:          "ui-dashboards",
 		Features:          []string{},
 		SupportLevel:      DevPreview,
+		SupportsTLSProfile: true,
 	},
 	{
 		PluginType:        uiv1alpha1.TypeTroubleshootingPanel,
