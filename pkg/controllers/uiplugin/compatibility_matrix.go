@@ -38,12 +38,13 @@ type ListFunction func(ctx context.Context, list client.ObjectList, opts ...clie
 
 var compatibilityMatrix = []CompatibilityEntry{
 	{
-		PluginType:        uiv1alpha1.TypeDashboards,
-		MinClusterVersion: "v4.11",
-		MaxClusterVersion: "",
-		ImageKey:          "ui-dashboards",
-		Features:          []string{},
-		SupportLevel:      DevPreview,
+		PluginType:         uiv1alpha1.TypeDashboards,
+		MinClusterVersion:  "v4.11",
+		MaxClusterVersion:  "",
+		ImageKey:           "ui-dashboards",
+		Features:           []string{},
+		SupportLevel:       DevPreview,
+		SupportsTLSProfile: true,
 	},
 	{
 		PluginType:        uiv1alpha1.TypeTroubleshootingPanel,
