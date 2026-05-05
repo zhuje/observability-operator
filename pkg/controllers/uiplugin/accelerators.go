@@ -48,6 +48,36 @@ func newAcceleratorsDatasource(namespace string) *persesv1alpha2.PersesDatasourc
 								"spec": map[string]interface{}{
 									"url":    "https://thanos-querier.openshift-monitoring.svc.cluster.local:9091",
 									"secret": "accelerators-thanos-querier-datasource-secret",
+									"allowedEndpoints": []map[string]interface{}{
+										{
+											"endpointPattern": "/api/v1/labels",
+											"method":          "POST",
+										},
+										{
+											"endpointPattern": "/api/v1/series",
+											"method":          "POST",
+										},
+										{
+											"endpointPattern": "/api/v1/metadata",
+											"method":          "GET",
+										},
+										{
+											"endpointPattern": "/api/v1/query",
+											"method":          "POST",
+										},
+										{
+											"endpointPattern": "/api/v1/query_range",
+											"method":          "POST",
+										},
+										{
+											"endpointPattern": "/api/v1/label/([a-zA-Z0-9_-]+)/values",
+											"method":          "GET",
+										},
+										{
+											"endpointPattern": "/api/v1/parse_query",
+											"method":          "POST",
+										},
+									},
 								},
 							},
 						},
