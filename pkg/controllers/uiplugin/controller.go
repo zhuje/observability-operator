@@ -209,6 +209,13 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	logger.Info("Reconciling observability UI plugin")
 
+	// Proactive console cleanup: Check for any UIPlugins marked for deletion and clean up their console entries
+	// This runs during normal reconciliation while the controller is healthy, avoiding finalizer timing issues
+	if err := rm.performProactiveConsoleCleanup(ctx, logger); err != nil {
+		logger.V(1).Info("proactive console cleanup encountered an error, continuing", "error", err)
+		// Don't fail reconciliation for cleanup errors - this is best-effort
+	}
+
 	plugin, err := rm.getUIPlugin(ctx, req)
 	if err != nil {
 		// retry since some error has occured
@@ -220,39 +227,33 @@ func (rm resourceManager) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	// Check if the plugin is being deleted
-	if !plugin.ObjectMeta.DeletionTimestamp.IsZero() {
-		logger.V(6).Info("deregistering plugin from the console")
-		if err := rm.deregisterPluginFromConsole(ctx, pluginTypeToConsoleName[plugin.Spec.Type]); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// Remove finalizer if present
-		if controllerutil.ContainsFinalizer(plugin, finalizerName) {
-			patch := client.MergeFrom(plugin.DeepCopy())
-			controllerutil.RemoveFinalizer(plugin, finalizerName)
-			if err := rm.k8sClient.Patch(ctx, plugin, patch); err != nil {
-				if apierrors.IsNotFound(err) {
-					return ctrl.Result{}, nil
-				}
-				return ctrl.Result{}, err
+	// Migration: Remove legacy finalizers if present (hybrid approach)
+	if controllerutil.ContainsFinalizer(plugin, finalizerName) {
+		logger.V(1).Info("removing legacy finalizer during migration to hybrid cleanup approach")
+		// Clean up console registration before removing finalizer (best effort)
+		if consoleName, exists := pluginTypeToConsoleName[plugin.Spec.Type]; exists {
+			if err := rm.deregisterPluginFromConsoleWithTimeout(ctx, consoleName, 5*time.Second); err != nil {
+				logger.V(1).Info("console deregistration failed during migration, continuing", "error", err)
 			}
 		}
-
-		logger.V(6).Info("skipping reconcile since object is already scheduled for deletion")
-		return ctrl.Result{}, nil
-	}
-
-	// Add finalizer if not present
-	if !controllerutil.ContainsFinalizer(plugin, finalizerName) {
 		patch := client.MergeFrom(plugin.DeepCopy())
-		controllerutil.AddFinalizer(plugin, finalizerName)
+		controllerutil.RemoveFinalizer(plugin, finalizerName)
 		if err := rm.k8sClient.Patch(ctx, plugin, patch); err != nil {
 			if apierrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
 		}
+		// Requeue to continue with normal reconciliation after finalizer removal
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	// Check if the plugin is being deleted - no finalizer blocking, just skip reconciliation
+	if !plugin.ObjectMeta.DeletionTimestamp.IsZero() {
+		logger.V(6).Info("plugin marked for deletion, skipping reconcile - garbage collection will handle cleanup")
+		// No finalizer cleanup needed - proactive cleanup handles console deregistration
+		// Owner references ensure all child resources are garbage collected automatically
+		return ctrl.Result{}, nil
 	}
 
 	compatibilityInfo, err := lookupImageAndFeatures(plugin.Spec.Type, rm.clusterVersion)
@@ -419,6 +420,69 @@ func (rm resourceManager) deregisterPluginFromConsole(ctx context.Context, plugi
 
 	if err := reconciler.NewMerger(cluster, pluginConsoleName).Reconcile(ctx, rm.k8sClient, rm.scheme); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// deregisterPluginFromConsoleWithTimeout performs console deregistration with timeout protection
+// This is used during proactive cleanup to prevent blocking indefinitely
+func (rm resourceManager) deregisterPluginFromConsoleWithTimeout(ctx context.Context, pluginConsoleName string, timeout time.Duration) error {
+	// Create timeout context to prevent blocking
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	cluster := &operatorv1.Console{}
+	if err := rm.apiReader.Get(timeoutCtx, client.ObjectKey{Name: "cluster"}, cluster); err != nil {
+		return err
+	}
+
+	if !slices.Contains(cluster.Spec.Plugins, pluginConsoleName) {
+		return nil // Plugin not registered, nothing to do
+	}
+
+	clusterPlugins := slices.DeleteFunc(cluster.Spec.Plugins, func(currentPluginName string) bool {
+		return currentPluginName == pluginConsoleName
+	})
+
+	// Deregister the plugin from the console
+	cluster.Spec.Plugins = clusterPlugins
+
+	if err := reconciler.NewMerger(cluster, pluginConsoleName).Reconcile(timeoutCtx, rm.k8sClient, rm.scheme); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// performProactiveConsoleCleanup checks for UIPlugins marked for deletion and cleans up their console entries
+// This runs during normal reconciliation while the controller is healthy, avoiding finalizer timing issues
+func (rm resourceManager) performProactiveConsoleCleanup(ctx context.Context, logger logr.Logger) error {
+	// List all UIPlugins to find ones marked for deletion
+	uiPluginList := &uiv1alpha1.UIPluginList{}
+	if err := rm.k8sClient.List(ctx, uiPluginList); err != nil {
+		logger.V(1).Info("failed to list UIPlugins during proactive cleanup", "error", err)
+		return nil // Don't fail reconciliation for cleanup errors
+	}
+
+	for _, plugin := range uiPluginList.Items {
+		// Check if plugin is marked for deletion (has DeletionTimestamp)
+		if !plugin.ObjectMeta.DeletionTimestamp.IsZero() {
+			consoleName, exists := pluginTypeToConsoleName[plugin.Spec.Type]
+			if !exists {
+				logger.V(1).Info("unknown plugin type during proactive cleanup", "type", plugin.Spec.Type, "plugin", plugin.Name)
+				continue
+			}
+
+			// Attempt console cleanup with timeout protection
+			logger.V(1).Info("performing proactive console cleanup", "plugin", plugin.Name, "consoleName", consoleName)
+			if err := rm.deregisterPluginFromConsoleWithTimeout(ctx, consoleName, 5*time.Second); err != nil {
+				// Log error but don't fail reconciliation - this is best-effort cleanup
+				logger.V(1).Info("proactive console cleanup failed, continuing", "plugin", plugin.Name, "error", err)
+			} else {
+				logger.V(1).Info("proactive console cleanup succeeded", "plugin", plugin.Name, "consoleName", consoleName)
+			}
+		}
 	}
 
 	return nil
